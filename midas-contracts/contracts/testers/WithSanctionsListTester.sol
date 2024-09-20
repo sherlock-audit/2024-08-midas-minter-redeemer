@@ -19,6 +19,12 @@ contract WithSanctionsListTester is WithSanctionsList {
         __WithSanctionsList_init(_accessControl, _sanctionsList);
     }
 
+    function initializeUnchainedWithoutInitializer(address _sanctionsList)
+        external
+    {
+        __WithSanctionsList_init_unchained(_sanctionsList);
+    }
+
     function onlyNotSanctionedTester(address user)
         public
         onlyNotSanctioned(user)

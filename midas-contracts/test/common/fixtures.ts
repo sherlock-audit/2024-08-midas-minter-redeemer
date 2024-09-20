@@ -47,13 +47,9 @@ import {
   // eslint-disable-next-line camelcase
   WithSanctionsListTester__factory,
   // eslint-disable-next-line camelcase
-  LiquiditySourceTest__factory,
-  // eslint-disable-next-line camelcase
   RedemptionTest__factory,
   // eslint-disable-next-line camelcase
   RedemptionVaultWithBUIDLTest__factory,
-  // eslint-disable-next-line camelcase
-  SettlementTest__factory,
   // eslint-disable-next-line camelcase
   MBasisRedemptionVaultWithSwapperTest__factory,
 } from '../../typechain-types';
@@ -705,17 +701,11 @@ export const defaultDeploy = async () => {
 
   const buidl = await new ERC20Mock__factory(owner).deploy(8);
 
-  const liquiditySource = await new LiquiditySourceTest__factory(owner).deploy(
-    stableCoins.usdc.address,
-  );
-  const settlement = await new SettlementTest__factory(owner).deploy(
-    regularAccounts[5].address,
-  );
   const buidlRedemption = await new RedemptionTest__factory(owner).deploy(
     buidl.address,
-    liquiditySource.address,
-    settlement.address,
+    stableCoins.usdc.address,
   );
+
   await stableCoins.usdc.mint(buidlRedemption.address, parseUnits('1000000'));
 
   const redemptionVaultWithBUIDL =
@@ -750,7 +740,7 @@ export const defaultDeploy = async () => {
     ),
   ).to.be.reverted;
   await redemptionVaultWithBUIDL[
-    'initialize(address,(address,address),(address,address),(uint256,uint256),address,uint256,uint256,(uint256,uint256,uint256),address,address)'
+    'initialize(address,(address,address),(address,address),(uint256,uint256),address,uint256,uint256,(uint256,uint256,uint256),address,address,uint256)'
   ](
     accessControl.address,
     {
@@ -775,6 +765,7 @@ export const defaultDeploy = async () => {
     },
     requestRedeemer.address,
     buidlRedemption.address,
+    parseUnits('250000', 6),
   );
   await accessControl.grantRole(
     mTBILL.M_TBILL_BURN_OPERATOR_ROLE(),
@@ -938,10 +929,8 @@ export const defaultDeploy = async () => {
     mockedSanctionsList,
     requestRedeemer,
     buidl,
-    liquiditySource,
     buidlRedemption,
     redemptionVaultWithBUIDL,
-    settlement,
     mBasisRedemptionVaultWithSwapper,
     mBASISToUsdDataFeed,
     mockedAggregatorMBASIS,

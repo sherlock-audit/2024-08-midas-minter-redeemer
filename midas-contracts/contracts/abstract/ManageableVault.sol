@@ -237,7 +237,10 @@ abstract contract ManageableVault is
         external
         onlyVaultAdmin
     {
-        _requireTokenExists(token);
+        if (token != MANUAL_FULLFILMENT_TOKEN) {
+            _requireTokenExists(token);
+        }
+
         require(allowance > 0, "MV: zero allowance");
         tokensConfig[token].allowance = allowance;
         emit ChangeTokenAllowance(token, msg.sender, allowance);
@@ -307,6 +310,18 @@ abstract contract ManageableVault is
         feeReceiver = receiver;
 
         emit SetFeeReceiver(msg.sender, receiver);
+    }
+
+    /**
+     * @inheritdoc IManageableVault
+     * @dev reverts address zero or equal address(this)
+     */
+    function setTokensReceiver(address receiver) external onlyVaultAdmin {
+        _validateAddress(receiver, true);
+
+        tokensReceiver = receiver;
+
+        emit SetTokensReceiver(msg.sender, receiver);
     }
 
     /**
@@ -522,7 +537,6 @@ abstract contract ManageableVault is
         bool isInstant,
         uint256 additionalFee
     ) internal view returns (uint256) {
-        if (amount == 0) return 0;
         if (waivedFeeRestriction[sender]) return 0;
 
         uint256 feePercent;
@@ -603,6 +617,7 @@ abstract contract ManageableVault is
     function _getTokenRate(address dataFeed, bool stable)
         internal
         view
+        virtual
         returns (uint256)
     {
         // @dev if dataFeed returns rate, all peg checks passed

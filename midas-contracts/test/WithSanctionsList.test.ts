@@ -38,6 +38,12 @@ describe('WithSanctionsList', function () {
         constants.AddressZero,
       ),
     ).revertedWith('Initializable: contract is not initializing');
+
+    await expect(
+      withSanctionsList.initializeUnchainedWithoutInitializer(
+        constants.AddressZero,
+      ),
+    ).revertedWith('Initializable: contract is not initializing');
   });
 
   describe('modifier onlyNotSanctioned', () => {
@@ -98,6 +104,39 @@ describe('WithSanctionsList', function () {
         { withSanctionsList: withSanctionsListTester, owner },
         constants.AddressZero,
       );
+    });
+  });
+
+  describe('onlyNotSanctionedTester()', () => {
+    it('should proceeds with sanctioned user if sanction list is empty', async () => {
+      const {
+        accessControl,
+        withSanctionsListTester,
+        owner,
+        mockedSanctionsList,
+        regularAccounts,
+      } = await loadFixture(defaultDeploy);
+
+      await accessControl.grantRole(
+        await withSanctionsListTester.sanctionsListAdminRole(),
+        owner.address,
+      );
+
+      await setSanctionsList(
+        { withSanctionsList: withSanctionsListTester, owner },
+        constants.AddressZero,
+      );
+
+      await sanctionUser(
+        { sanctionsList: mockedSanctionsList },
+        regularAccounts[0].address,
+      );
+
+      await expect(
+        withSanctionsListTester.onlyNotSanctionedTester(
+          regularAccounts[0].address,
+        ),
+      ).not.reverted;
     });
   });
 });

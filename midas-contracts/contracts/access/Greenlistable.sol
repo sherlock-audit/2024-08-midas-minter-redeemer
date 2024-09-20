@@ -21,6 +21,11 @@ abstract contract Greenlistable is WithMidasAccessControl {
      */
     bool public greenlistEnabled;
 
+    /**
+     * @dev leaving a storage gap for futures updates
+     */
+    uint256[50] private __gap;
+
     event SetGreenlistEnable(address indexed sender, bool enable);
 
     /**

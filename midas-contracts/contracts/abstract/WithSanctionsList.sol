@@ -13,6 +13,11 @@ import "./MidasInitializable.sol";
  */
 abstract contract WithSanctionsList is WithMidasAccessControl {
     /**
+     * @dev leaving a storage gap for futures updates
+     */
+    uint256[50] private __gap;
+
+    /**
      * @notice address of Chainalysis sanctions oracle
      */
     address public sanctionsList;

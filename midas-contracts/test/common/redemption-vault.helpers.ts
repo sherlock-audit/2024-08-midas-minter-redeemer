@@ -276,7 +276,7 @@ export const redeemFiatRequestTest = async (
   expect(request.tokenOut).eq(manualToken);
   expect(request.amountMToken).eq(amountInWithoutFee);
   expect(request.mTokenRate).eq(mTokenRate);
-  expect(request.tokenOutRate).eq(0);
+  expect(request.tokenOutRate).eq(parseUnits('1'));
 
   const balanceAfterUser = await mTBILL.balanceOf(sender.address);
   const balanceAfterReceiver = await mTBILL.balanceOf(tokensReceiver);
@@ -462,6 +462,8 @@ export const safeApproveRedeemRequestTest = async (
 
   const tokenDecimals = await tokenContract.decimals();
 
+  console.log(requestDataBefore.amountMToken, requestDataBefore.tokenOutRate);
+
   const amountOut = requestDataBefore.amountMToken
     .mul(newTokenRate)
     .div(requestDataBefore.tokenOutRate)
@@ -584,6 +586,29 @@ export const setFiatAdditionalFeeTest = async (
   ).to.not.reverted;
 
   const newfee = await redemptionVault.fiatAdditionalFee();
+  expect(newfee).eq(valueN);
+};
+
+export const setFiatFlatFeeTest = async (
+  { redemptionVault, owner }: CommonParams,
+  valueN: number,
+  opt?: OptionalCommonParams,
+) => {
+  if (opt?.revertMessage) {
+    await expect(
+      redemptionVault.connect(opt?.from ?? owner).setFiatFlatFee(valueN),
+    ).revertedWith(opt?.revertMessage);
+    return;
+  }
+
+  await expect(
+    redemptionVault.connect(opt?.from ?? owner).setFiatFlatFee(valueN),
+  ).to.emit(
+    redemptionVault,
+    redemptionVault.interface.events['SetFiatFlatFee(address,uint256)'].name,
+  ).to.not.reverted;
+
+  const newfee = await redemptionVault.fiatFlatFee();
   expect(newfee).eq(valueN);
 };
 
