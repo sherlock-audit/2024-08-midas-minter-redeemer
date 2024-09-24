@@ -1,0 +1,13 @@
+diff a/midas-contracts/contracts/abstract/WithSanctionsList.sol b/midas-contracts/contracts/abstract/WithSanctionsList.sol	(rejected hunks)
+@@ -17,6 +17,11 @@ abstract contract WithSanctionsList is WithMidasAccessControl {
+      */
+     address public sanctionsList;
+ 
++    /**
++     * @dev leaving a storage gap for futures updates
++     */
++    uint256[50] private __gap;
++
+     /**
+      * @param caller function caller (msg.sender)
+      * @param newSanctionsList new address of `sanctionsList`

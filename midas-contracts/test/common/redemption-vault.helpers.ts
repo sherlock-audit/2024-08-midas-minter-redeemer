@@ -635,6 +635,29 @@ export const setFiatFlatFeeTest = async (
   expect(newfee).eq(valueN);
 };
 
+export const setFiatFlatFeeTest = async (
+  { redemptionVault, owner }: CommonParams,
+  valueN: number,
+  opt?: OptionalCommonParams,
+) => {
+  if (opt?.revertMessage) {
+    await expect(
+      redemptionVault.connect(opt?.from ?? owner).setFiatFlatFee(valueN),
+    ).revertedWith(opt?.revertMessage);
+    return;
+  }
+
+  await expect(
+    redemptionVault.connect(opt?.from ?? owner).setFiatFlatFee(valueN),
+  ).to.emit(
+    redemptionVault,
+    redemptionVault.interface.events['SetFiatFlatFee(address,uint256)'].name,
+  ).to.not.reverted;
+
+  const newfee = await redemptionVault.fiatFlatFee();
+  expect(newfee).eq(valueN);
+};
+
 export const setRequestRedeemerTest = async (
   { redemptionVault, owner }: CommonParams,
   redeemer: string,

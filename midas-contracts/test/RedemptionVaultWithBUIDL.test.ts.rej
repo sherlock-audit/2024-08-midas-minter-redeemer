@@ -51,6 +51,60 @@ diff a/midas-contracts/test/RedemptionVaultWithBUIDL.test.ts b/midas-contracts/t
          ),
        ).revertedWith('Initializable: contract is already initialized');
      });
+@@ -1169,7 +1197,7 @@ describe('RedemptionVaultWithBUIDL', function () {
+           mTBILL,
+           mTokenToUsdDataFeed,
+         },
+-        stableCoins.dai,
++        stableCoins.usdc,
+         1,
+         {
+           revertMessage: 'MV: token not exists',
+@@ -1200,7 +1228,7 @@ describe('RedemptionVaultWithBUIDL', function () {
+           mTBILL,
+           mTokenToUsdDataFeed,
+         },
+-        stableCoins.dai,
++        stableCoins.usdc,
+         0,
+         {
+           revertMessage: 'RV: invalid amount',
+@@ -1277,7 +1305,7 @@ describe('RedemptionVaultWithBUIDL', function () {
+           mTBILL,
+           mTokenToUsdDataFeed,
+         },
+-        stableCoins.dai,
++        stableCoins.usdc,
+         100,
+         {
+           revertMessage: 'ERC20: insufficient allowance',
+@@ -1352,7 +1380,7 @@ describe('RedemptionVaultWithBUIDL', function () {
+           mTBILL,
+           mTokenToUsdDataFeed,
+         },
+-        stableCoins.dai,
++        stableCoins.usdc,
+         1,
+         {
+           revertMessage: 'DF: feed is deprecated',
+@@ -1367,7 +1395,7 @@ describe('RedemptionVaultWithBUIDL', function () {
+           mTBILL,
+           mTokenToUsdDataFeed,
+         },
+-        stableCoins.dai,
++        stableCoins.usdc,
+         1,
+         {
+           revertMessage: 'DF: feed is deprecated',
+@@ -1409,7 +1476,7 @@ describe('RedemptionVaultWithBUIDL', function () {
+           mTBILL,
+           mTokenToUsdDataFeed,
+         },
+-        stableCoins.dai,
++        stableCoins.usdc,
+         99_999,
+         {
+           revertMessage: 'RV: amount < min',
 @@ -1685,10 +1784,10 @@ describe('RedemptionVaultWithBUIDL', function () {
            mTBILL,
            mTokenToUsdDataFeed,
