@@ -1,0 +1,13 @@
+diff a/midas-contracts/contracts/access/Blacklistable.sol b/midas-contracts/contracts/access/Blacklistable.sol	(rejected hunks)
+@@ -10,6 +10,11 @@ import "./WithMidasAccessControl.sol";
+  * @author RedDuck Software
+  */
+ abstract contract Blacklistable is WithMidasAccessControl {
++    /**
++     * @dev leaving a storage gap for futures updates
++     */
++    uint256[50] private __gap;
++
+     /**
+      * @dev checks that a given `account` doesnt
+      * have BLACKLISTED_ROLE

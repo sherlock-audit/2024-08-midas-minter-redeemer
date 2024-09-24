@@ -1,0 +1,75 @@
+diff a/midas-contracts/test/RedemptionVaultWithBUIDL.test.ts b/midas-contracts/test/RedemptionVaultWithBUIDL.test.ts	(rejected hunks)
+@@ -25,6 +25,7 @@ import {
+   setVariabilityToleranceTest,
+   withdrawTest,
+   changeTokenFeeTest,
++  setMinBuidlToRedeem,
+ } from './common/manageable-vault.helpers';
+ import {
+   approveRedeemRequestTest,
+@@ -52,7 +53,6 @@ describe('RedemptionVaultWithBUIDL', function () {
+   it('deployment', async () => {
+     const {
+       redemptionVaultWithBUIDL,
+-      liquiditySource,
+       buidlRedemption,
+       mTBILL,
+       tokensReceiver,
+@@ -96,13 +96,12 @@ describe('RedemptionVaultWithBUIDL', function () {
+       ethers.constants.AddressZero,
+     );
+ 
+-    expect(await redemptionVaultWithBUIDL.buidlLiquiditySource()).eq(
+-      liquiditySource.address,
+-    );
+-
+     expect(await redemptionVaultWithBUIDL.buidlRedemption()).eq(
+       buidlRedemption.address,
+     );
++    expect(await redemptionVaultWithBUIDL.minBuidlToRedeem()).eq(
++      parseUnits('250000', 6),
++    );
+   });
+ 
+   it('MBasisRedemptionVault', async () => {
+@@ -139,7 +138,7 @@ describe('RedemptionVaultWithBUIDL', function () {
+ 
+       await expect(
+         redemptionVaultWithBUIDL[
+-          'initialize(address,(address,address),(address,address),(uint256,uint256),address,uint256,uint256,(uint256,uint256,uint256),address)'
++          'initialize(address,(address,address),(address,address),(uint256,uint256),address,uint256,uint256,(uint256,uint256,uint256),address,address,uint256,uint256)'
+         ](
+           constants.AddressZero,
+           {
+@@ -163,6 +162,9 @@ describe('RedemptionVaultWithBUIDL', function () {
+             minFiatRedeemAmount: 0,
+           },
+           constants.AddressZero,
++          constants.AddressZero,
++          0,
++          0,
+         ),
+       ).revertedWith('Initializable: contract is already initialized');
+     });
+@@ -1685,10 +1784,10 @@ describe('RedemptionVaultWithBUIDL', function () {
+           mTBILL,
+           mTokenToUsdDataFeed,
+         },
+-        constants.AddressZero,
++        stableCoins.usdc,
+         100000,
+         {
+-          revertMessage: 'ERC20: transfer amount exceeds balance',
++          revertMessage: 'RVB: buidlToRedeem > balance',
+         },
+       );
+     });
+@@ -1772,7 +1871,7 @@ describe('RedemptionVaultWithBUIDL', function () {
+         redemptionVaultWithBUIDL.address,
+       );
+       expect(buidlBalanceAfter).eq(
+-        buidlBalanceBefore.sub(parseUnits('1000', 8)),
++        buidlBalanceBefore.sub(parseUnits('250000', 6)),
+       );
+     });
+ 

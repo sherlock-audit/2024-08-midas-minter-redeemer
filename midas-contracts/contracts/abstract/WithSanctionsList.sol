@@ -23,6 +23,11 @@ abstract contract WithSanctionsList is WithMidasAccessControl {
     address public sanctionsList;
 
     /**
+     * @dev leaving a storage gap for futures updates
+     */
+    uint256[50] private __gap;
+
+    /**
      * @param caller function caller (msg.sender)
      * @param newSanctionsList new address of `sanctionsList`
      */

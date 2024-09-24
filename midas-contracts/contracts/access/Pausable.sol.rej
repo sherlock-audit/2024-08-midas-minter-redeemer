@@ -1,0 +1,13 @@
+diff a/midas-contracts/contracts/access/Pausable.sol b/midas-contracts/contracts/access/Pausable.sol	(rejected hunks)
+@@ -13,6 +13,11 @@ import "../access/WithMidasAccessControl.sol";
+ abstract contract Pausable is WithMidasAccessControl, PausableUpgradeable {
+     mapping(bytes4 => bool) public fnPaused;
+ 
++    /**
++     * @dev leaving a storage gap for futures updates
++     */
++    uint256[50] private __gap;
++
+     /**
+      * @param caller caller address (msg.sender)
+      * @param fn function id

@@ -1,0 +1,12 @@
+diff a/midas-contracts/contracts/testers/GreenlistableTester.sol b/midas-contracts/contracts/testers/GreenlistableTester.sol	(rejected hunks)
+@@ -12,6 +12,10 @@ contract GreenlistableTester is Greenlistable {
+         __Greenlistable_init(_accessControl);
+     }
+ 
++    function initializeUnchainedWithoutInitializer() external {
++        __Greenlistable_init_unchained();
++    }
++
+     function onlyGreenlistedTester(address account)
+         external
+         onlyGreenlisted(account)

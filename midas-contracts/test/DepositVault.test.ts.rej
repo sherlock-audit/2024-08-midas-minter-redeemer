@@ -1,0 +1,133 @@
+diff a/midas-contracts/test/DepositVault.test.ts b/midas-contracts/test/DepositVault.test.ts	(rejected hunks)
+@@ -1436,7 +1436,7 @@ describe('DepositVault', function () {
+         stableCoins.dai,
+         100,
+         {
+-          revertMessage: 'DV: amount zero',
++          revertMessage: 'DV: mToken amount < min',
+         },
+       );
+ 
+@@ -1456,7 +1456,7 @@ describe('DepositVault', function () {
+         { depositVault, owner, mTBILL, mTokenToUsdDataFeed },
+         stableCoins.dai,
+         100,
+-        { revertMessage: 'DV: amount zero' },
++        { revertMessage: 'DV: mToken amount < min' },
+       );
+     });
+ 
+@@ -2045,7 +2045,7 @@ describe('DepositVault', function () {
+         stableCoins.dai,
+         100,
+         {
+-          revertMessage: 'DV: amount zero',
++          revertMessage: 'DV: mToken amount < min',
+         },
+       );
+     });
+@@ -3131,4 +3246,104 @@ describe('DepositVault', function () {
+       );
+     });
+   });
++
++  describe('ManageableVault internal functions', () => {
++    it('should fail: invalid rounding tokenTransferFromToTester()', async () => {
++      const { depositVault, stableCoins, owner } = await loadFixture(
++        defaultDeploy,
++      );
++
++      await mintToken(stableCoins.usdc, owner, 1000);
++
++      await approveBase18(owner, stableCoins.usdc, depositVault, 1000);
++
++      await expect(
++        depositVault.tokenTransferFromToTester(
++          stableCoins.usdc.address,
++          owner.address,
++          depositVault.address,
++          parseUnits('999.999999999'),
++          8,
++        ),
++      ).revertedWith('MV: invalid rounding');
++    });
++
++    it('should fail: invalid rounding tokenTransferToUserTester()', async () => {
++      const { depositVault, stableCoins, owner } = await loadFixture(
++        defaultDeploy,
++      );
++
++      await mintToken(stableCoins.usdc, depositVault, 1000);
++
++      await expect(
++        depositVault.tokenTransferToUserTester(
++          stableCoins.usdc.address,
++          owner.address,
++          parseUnits('999.999999999'),
++          8,
++        ),
++      ).revertedWith('MV: invalid rounding');
++    });
++  });
++
++  describe('_convertUsdToToken', () => {
++    it('should fail: when amountUsd == 0', async () => {
++      const { depositVault } = await loadFixture(defaultDeploy);
++
++      await expect(
++        depositVault.convertTokenToUsdTest(constants.AddressZero, 0),
++      ).revertedWith('DV: amount zero');
++    });
++
++    it('should fail: when tokenRate == 0', async () => {
++      const { depositVault } = await loadFixture(defaultDeploy);
++
++      await depositVault.setOverrideGetTokenRate(true);
++      await depositVault.setGetTokenRateValue(0);
++
++      await expect(
++        depositVault.convertTokenToUsdTest(constants.AddressZero, 1),
++      ).revertedWith('DV: rate zero');
++    });
++  });
++
++  describe('_convertUsdToMToken', () => {
++    it('should fail: when rate == 0', async () => {
++      const { depositVault } = await loadFixture(defaultDeploy);
++
++      await depositVault.setOverrideGetTokenRate(true);
++      await depositVault.setGetTokenRateValue(0);
++
++      await expect(depositVault.convertUsdToMTokenTest(1)).revertedWith(
++        'DV: rate zero',
++      );
++    });
++  });
++
++  describe('_calcAndValidateDeposit', () => {
++    it('should fail: when tokenOut is not MANUAL_FULLFILMENT_TOKEN but isFiat = true', async () => {
++      const { depositVault, stableCoins, owner, dataFeed } = await loadFixture(
++        defaultDeploy,
++      );
++
++      await addPaymentTokenTest(
++        { vault: depositVault, owner },
++        stableCoins.dai,
++        dataFeed.address,
++        parseUnits('100', 2),
++        true,
++      );
++
++      await setMinAmountTest({ vault: depositVault, owner }, 0);
++
++      await expect(
++        depositVault.calcAndValidateDeposit(
++          constants.AddressZero,
++          stableCoins.dai.address,
++          parseUnits('100'),
++          true,
++        ),
++      ).revertedWith('DV: invalid mint amount');
++    });
++  });
+ });

@@ -247,6 +247,29 @@ export const setTokensReceiverTest = async (
   expect(feeReceiver).eq(newReceiver);
 };
 
+export const setTokensReceiverTest = async (
+  { vault, owner }: CommonParamsChangePaymentToken,
+  newReceiver: string,
+  opt?: OptionalCommonParams,
+) => {
+  if (opt?.revertMessage) {
+    await expect(
+      vault.connect(opt?.from ?? owner).setTokensReceiver(newReceiver),
+    ).revertedWith(opt?.revertMessage);
+    return;
+  }
+
+  await expect(vault.connect(opt?.from ?? owner).setTokensReceiver(newReceiver))
+    .to.emit(
+      vault,
+      vault.interface.events['SetTokensReceiver(address,address)'].name,
+    )
+    .withArgs((opt?.from ?? owner).address, newReceiver).to.not.reverted;
+
+  const feeReceiver = await vault.tokensReceiver();
+  expect(feeReceiver).eq(newReceiver);
+};
+
 export const addAccountWaivedFeeRestrictionTest = async (
   { vault, owner }: CommonParamsChangePaymentToken,
   account: string,

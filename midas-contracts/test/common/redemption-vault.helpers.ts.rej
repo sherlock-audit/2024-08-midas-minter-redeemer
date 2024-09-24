@@ -1,0 +1,19 @@
+diff a/midas-contracts/test/common/redemption-vault.helpers.ts b/midas-contracts/test/common/redemption-vault.helpers.ts	(rejected hunks)
+@@ -276,7 +276,7 @@ export const redeemFiatRequestTest = async (
+   expect(request.tokenOut).eq(manualToken);
+   expect(request.amountMToken).eq(amountInWithoutFee);
+   expect(request.mTokenRate).eq(mTokenRate);
+-  expect(request.tokenOutRate).eq(0);
++  expect(request.tokenOutRate).eq(parseUnits('1'));
+ 
+   const balanceAfterUser = await mTBILL.balanceOf(sender.address);
+   const balanceAfterReceiver = await mTBILL.balanceOf(tokensReceiver);
+@@ -462,6 +462,8 @@ export const safeApproveRedeemRequestTest = async (
+ 
+   const tokenDecimals = await tokenContract.decimals();
+ 
++  console.log(requestDataBefore.amountMToken, requestDataBefore.tokenOutRate);
++
+   const amountOut = requestDataBefore.amountMToken
+     .mul(newTokenRate)
+     .div(requestDataBefore.tokenOutRate)

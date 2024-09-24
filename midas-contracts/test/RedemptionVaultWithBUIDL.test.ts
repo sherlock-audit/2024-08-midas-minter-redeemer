@@ -398,6 +398,32 @@ describe('RedemptionVaultWithBUIDL', function () {
     });
   });
 
+  describe('setMinBuidlToRedeem()', () => {
+    it('should fail: call from address without REDEMPTION_VAULT_ADMIN_ROLE role', async () => {
+      const { owner, redemptionVaultWithBUIDL, regularAccounts } =
+        await loadFixture(defaultDeploy);
+
+      await setMinBuidlToRedeem(
+        { vault: redemptionVaultWithBUIDL, owner },
+        parseUnits('100000', 6),
+        {
+          from: regularAccounts[0],
+          revertMessage: acErrors.WMAC_HASNT_ROLE,
+        },
+      );
+    });
+
+    it('call from address with REDEMPTION_VAULT_ADMIN_ROLE role', async () => {
+      const { owner, redemptionVaultWithBUIDL } = await loadFixture(
+        defaultDeploy,
+      );
+      await setMinBuidlToRedeem(
+        { vault: redemptionVaultWithBUIDL, owner },
+        parseUnits('100000', 6),
+      );
+    });
+  });
+
   describe('setMinAmount()', () => {
     it('should fail: call from address without DEPOSIT_VAULT_ADMIN_ROLE role', async () => {
       const { owner, redemptionVaultWithBUIDL, regularAccounts } =
@@ -1441,6 +1467,45 @@ describe('RedemptionVaultWithBUIDL', function () {
       );
     });
 
+    it('should fail: if min receive amount greater then actual', async () => {
+      const {
+        redemptionVaultWithBUIDL,
+        mockedAggregator,
+        owner,
+        mTBILL,
+        stableCoins,
+        dataFeed,
+        mTokenToUsdDataFeed,
+      } = await loadFixture(defaultDeploy);
+      await addPaymentTokenTest(
+        { vault: redemptionVaultWithBUIDL, owner },
+        stableCoins.usdc,
+        dataFeed.address,
+        0,
+        true,
+      );
+      await setRoundData({ mockedAggregator }, 4);
+
+      await mintToken(mTBILL, owner, 100_000);
+
+      await approveBase18(owner, mTBILL, redemptionVaultWithBUIDL, 100_000);
+
+      await redeemInstantTest(
+        {
+          redemptionVault: redemptionVaultWithBUIDL,
+          owner,
+          mTBILL,
+          mTokenToUsdDataFeed,
+          minAmount: parseUnits('1000000'),
+        },
+        stableCoins.usdc,
+        99_999,
+        {
+          revertMessage: 'RVB: minReceiveAmount > actual',
+        },
+      );
+    });
+
     it('should fail: call for amount < minAmount', async () => {
       const {
         redemptionVaultWithBUIDL,
@@ -1479,6 +1544,38 @@ describe('RedemptionVaultWithBUIDL', function () {
         99_999,
         {
           revertMessage: 'RV: amount < min',
+        },
+      );
+    });
+
+    it('should fail: call when token is invalid', async () => {
+      const {
+        redemptionVaultWithBUIDL,
+        mockedAggregator,
+        owner,
+        mTBILL,
+        stableCoins,
+        dataFeed,
+        mTokenToUsdDataFeed,
+      } = await loadFixture(defaultDeploy);
+      await addPaymentTokenTest(
+        { vault: redemptionVaultWithBUIDL, owner },
+        stableCoins.usdc,
+        dataFeed.address,
+        0,
+        true,
+      );
+      await redeemInstantTest(
+        {
+          redemptionVault: redemptionVaultWithBUIDL,
+          owner,
+          mTBILL,
+          mTokenToUsdDataFeed,
+        },
+        stableCoins.dai,
+        99_999,
+        {
+          revertMessage: 'RVB: invalid token',
         },
       );
     });
@@ -2013,7 +2110,7 @@ describe('RedemptionVaultWithBUIDL', function () {
           mTBILL,
           mTokenToUsdDataFeed,
         },
-        stableCoins.dai,
+        stableCoins.usdc,
         1,
         {
           revertMessage: 'MV: token not exists',
@@ -2032,7 +2129,7 @@ describe('RedemptionVaultWithBUIDL', function () {
       } = await loadFixture(defaultDeploy);
       await addPaymentTokenTest(
         { vault: redemptionVaultWithBUIDL, owner },
-        stableCoins.dai,
+        stableCoins.usdc,
         dataFeed.address,
         0,
         true,
@@ -2044,7 +2141,7 @@ describe('RedemptionVaultWithBUIDL', function () {
           mTBILL,
           mTokenToUsdDataFeed,
         },
-        stableCoins.dai,
+        stableCoins.usdc,
         0,
         {
           revertMessage: 'RV: invalid amount',
@@ -2119,7 +2216,7 @@ describe('RedemptionVaultWithBUIDL', function () {
           mTBILL,
           mTokenToUsdDataFeed,
         },
-        stableCoins.dai,
+        stableCoins.usdc,
         100,
         {
           revertMessage: 'ERC20: insufficient allowance',
@@ -2189,7 +2286,7 @@ describe('RedemptionVaultWithBUIDL', function () {
           mTBILL,
           mTokenToUsdDataFeed,
         },
-        stableCoins.dai,
+        stableCoins.usdc,
         1,
         {
           revertMessage: 'DF: feed is deprecated',
@@ -2204,7 +2301,7 @@ describe('RedemptionVaultWithBUIDL', function () {
           mTBILL,
           mTokenToUsdDataFeed,
         },
-        stableCoins.dai,
+        stableCoins.usdc,
         1,
         {
           revertMessage: 'DF: feed is deprecated',
@@ -2246,7 +2343,7 @@ describe('RedemptionVaultWithBUIDL', function () {
           mTBILL,
           mTokenToUsdDataFeed,
         },
-        stableCoins.dai,
+        stableCoins.usdc,
         99_999,
         {
           revertMessage: 'RV: amount < min',
@@ -3145,6 +3242,11 @@ describe('RedemptionVaultWithBUIDL', function () {
         100,
       );
       const requestId = 0;
+      await changeTokenAllowanceTest(
+        { vault: redemptionVault, owner },
+        constants.AddressZero,
+        parseUnits('100'),
+      );
 
       await approveRedeemRequestTest(
         { redemptionVault, owner, mTBILL, mTokenToUsdDataFeed },

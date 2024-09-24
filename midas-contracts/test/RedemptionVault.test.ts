@@ -1501,6 +1501,58 @@ describe('RedemptionVault', function () {
     });
   });
 
+  describe('setTokensReceiver()', () => {
+    it('should fail: call from address without REDEMPTION_VAULT_ADMIN_ROLE role', async () => {
+      const { owner, redemptionVault, regularAccounts } = await loadFixture(
+        defaultDeploy,
+      );
+
+      await setTokensReceiverTest(
+        { vault: redemptionVault, owner },
+        regularAccounts[0].address,
+        {
+          from: regularAccounts[0],
+          revertMessage: acErrors.WMAC_HASNT_ROLE,
+        },
+      );
+    });
+
+    it('should fail: call with zero address receiver', async () => {
+      const { owner, redemptionVault } = await loadFixture(defaultDeploy);
+
+      await setTokensReceiverTest(
+        { vault: redemptionVault, owner },
+        constants.AddressZero,
+        {
+          revertMessage: 'zero address',
+        },
+      );
+    });
+
+    it('should fail: call with address(this) receiver', async () => {
+      const { owner, redemptionVault } = await loadFixture(defaultDeploy);
+
+      await setTokensReceiverTest(
+        { vault: redemptionVault, owner },
+        redemptionVault.address,
+        {
+          revertMessage: 'invalid address',
+        },
+      );
+    });
+
+    it('call from address without REDEMPTION_VAULT_ADMIN_ROLE role', async () => {
+      const { owner, redemptionVault, regularAccounts } = await loadFixture(
+        defaultDeploy,
+      );
+
+      await setTokensReceiverTest(
+        { vault: redemptionVault, owner },
+        regularAccounts[0].address,
+      );
+    });
+  });
+
   describe('setMinAmount()', () => {
     it('should fail: call from address without DEPOSIT_VAULT_ADMIN_ROLE role', async () => {
       const { owner, redemptionVault, regularAccounts } = await loadFixture(
@@ -1534,6 +1586,62 @@ describe('RedemptionVault', function () {
     it('call from address with REDEMPTION_VAULT_ADMIN_ROLE role', async () => {
       const { owner, redemptionVault } = await loadFixture(defaultDeploy);
       await setMinFiatRedeemAmountTest({ redemptionVault, owner }, 1.1);
+    });
+  });
+
+  describe('setFeeReceiver()', () => {
+    it('should fail: call from address without REDEMPTION_VAULT_ADMIN_ROLE role', async () => {
+      const { owner, redemptionVault, regularAccounts } = await loadFixture(
+        defaultDeploy,
+      );
+
+      await setFeeReceiverTest(
+        { vault: redemptionVault, owner },
+        regularAccounts[0].address,
+        {
+          from: regularAccounts[0],
+          revertMessage: acErrors.WMAC_HASNT_ROLE,
+        },
+      );
+    });
+
+    it('call from address with REDEMPTION_VAULT_ADMIN_ROLE role', async () => {
+      const { owner, redemptionVault, regularAccounts } = await loadFixture(
+        defaultDeploy,
+      );
+      await setFeeReceiverTest(
+        { vault: redemptionVault, owner },
+        regularAccounts[0].address,
+      );
+    });
+  });
+
+  describe('sanctionsListAdminRole()', () => {
+    it('should return same role as vaultRole()', async () => {
+      const { redemptionVault } = await loadFixture(defaultDeploy);
+      const vaultRole = await redemptionVault.vaultRole();
+      const sanctionsListAdminRole =
+        await redemptionVault.sanctionsListAdminRole();
+
+      expect(sanctionsListAdminRole).eq(vaultRole);
+    });
+  });
+
+  describe('setFiatFlatFee()', () => {
+    it('should fail: call from address without REDEMPTION_VAULT_ADMIN_ROLE role', async () => {
+      const { owner, redemptionVault, regularAccounts } = await loadFixture(
+        defaultDeploy,
+      );
+
+      await setFiatFlatFeeTest({ redemptionVault, owner }, 100, {
+        from: regularAccounts[0],
+        revertMessage: acErrors.WMAC_HASNT_ROLE,
+      });
+    });
+
+    it('call from address with REDEMPTION_VAULT_ADMIN_ROLE role', async () => {
+      const { owner, redemptionVault } = await loadFixture(defaultDeploy);
+      await setFiatFlatFeeTest({ redemptionVault, owner }, 100);
     });
   });
 
@@ -4020,6 +4128,12 @@ describe('RedemptionVault', function () {
         100,
       );
       const requestId = 0;
+
+      await changeTokenAllowanceTest(
+        { vault: redemptionVault, owner },
+        constants.AddressZero,
+        parseUnits('100'),
+      );
 
       await approveRedeemRequestTest(
         { redemptionVault, owner, mTBILL, mTokenToUsdDataFeed },

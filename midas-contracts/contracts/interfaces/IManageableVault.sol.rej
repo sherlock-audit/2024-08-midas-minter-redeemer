@@ -1,0 +1,28 @@
+diff a/midas-contracts/contracts/interfaces/IManageableVault.sol b/midas-contracts/contracts/interfaces/IManageableVault.sol	(rejected hunks)
+@@ -141,6 +141,12 @@ interface IManageableVault {
+      */
+     event SetFeeReceiver(address indexed caller, address indexed reciever);
+ 
++    /**
++     * @param caller function caller (msg.sender)
++     * @param reciever new reciever address
++     */
++    event SetTokensReceiver(address indexed caller, address indexed reciever);
++
+     /**
+      * @param user user address
+      * @param enable is enabled
+@@ -247,6 +253,13 @@ interface IManageableVault {
+      */
+     function setFeeReceiver(address reciever) external;
+ 
++    /**
++     * @notice set new reciever for tokens.
++     * can be called only from permissioned actor.
++     * @param reciever new token reciever address
++     */
++    function setTokensReceiver(address reciever) external;
++
+     /**
+      * @notice set operation fee percent.
+      * can be called only from permissioned actor.

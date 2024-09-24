@@ -1,0 +1,13 @@
+diff a/midas-contracts/contracts/access/Greenlistable.sol b/midas-contracts/contracts/access/Greenlistable.sol	(rejected hunks)
+@@ -21,6 +21,11 @@ abstract contract Greenlistable is WithMidasAccessControl {
+      */
+     bool public greenlistEnabled;
+ 
++    /**
++     * @dev leaving a storage gap for futures updates
++     */
++    uint256[50] private __gap;
++
+     event SetGreenlistEnable(address indexed sender, bool enable);
+ 
+     /**

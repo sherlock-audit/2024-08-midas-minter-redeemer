@@ -44,6 +44,12 @@ describe('WithSanctionsList', function () {
         constants.AddressZero,
       ),
     ).revertedWith('Initializable: contract is not initializing');
+
+    await expect(
+      withSanctionsList.initializeUnchainedWithoutInitializer(
+        constants.AddressZero,
+      ),
+    ).revertedWith('Initializable: contract is not initializing');
   });
 
   describe('modifier onlyNotSanctioned', () => {
