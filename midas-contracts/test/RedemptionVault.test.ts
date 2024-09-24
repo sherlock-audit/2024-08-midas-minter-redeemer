@@ -25,6 +25,8 @@ import {
   setVariabilityToleranceTest,
   withdrawTest,
   changeTokenFeeTest,
+  setTokensReceiverTest,
+  setFeeReceiverTest,
 } from './common/manageable-vault.helpers';
 import {
   redeemInstantWithSwapperTest,
@@ -38,6 +40,7 @@ import {
   rejectRedeemRequestTest,
   safeApproveRedeemRequestTest,
   setFiatAdditionalFeeTest,
+  setFiatFlatFeeTest,
   setMinFiatRedeemAmountTest,
   setRequestRedeemerTest,
 } from './common/redemption-vault.helpers';
@@ -92,19 +95,100 @@ describe('RedemptionVault', function () {
     );
   });
 
-  it('MBasisRedemptionVault', async () => {
-    const fixture = await loadFixture(defaultDeploy);
+  it('failing deployment', async () => {
+    const {
+      redemptionVault,
+      mTokenToUsdDataFeed,
+      feeReceiver,
+      tokensReceiver,
+      mockedSanctionsList,
+      requestRedeemer,
+    } = await loadFixture(defaultDeploy);
 
-    const tester = await new MBasisRedemptionVault__factory(
-      fixture.owner,
-    ).deploy();
-
-    expect(await tester.vaultRole()).eq(
-      await tester.M_BASIS_REDEMPTION_VAULT_ADMIN_ROLE(),
-    );
+    await expect(
+      redemptionVault.initializeWithoutInitializer(
+        ethers.constants.AddressZero,
+        {
+          mToken: ethers.constants.AddressZero,
+          mTokenDataFeed: mTokenToUsdDataFeed.address,
+        },
+        {
+          feeReceiver: feeReceiver.address,
+          tokensReceiver: tokensReceiver.address,
+        },
+        {
+          instantFee: 100,
+          instantDailyLimit: parseUnits('100000'),
+        },
+        mockedSanctionsList.address,
+        1,
+        parseUnits('100'),
+        {
+          fiatAdditionalFee: 100,
+          fiatFlatFee: parseUnits('1'),
+          minFiatRedeemAmount: parseUnits('100'),
+        },
+        requestRedeemer.address,
+      ),
+    ).to.be.revertedWith('Initializable: contract is not initializing');
   });
 
-  describe('MBasisRedemptionVaultWithSwapper redeemInstant()', () => {
+  describe('MBasisRedemptionVault', () => {
+    describe('deployment', () => {
+      it('vaultRole', async () => {
+        const fixture = await loadFixture(defaultDeploy);
+
+        const tester = await new MBasisRedemptionVault__factory(
+          fixture.owner,
+        ).deploy();
+
+        expect(await tester.vaultRole()).eq(
+          await tester.M_BASIS_REDEMPTION_VAULT_ADMIN_ROLE(),
+        );
+      });
+    });
+  });
+
+  describe('MBasisRedemptionVaultWithSwapper', () => {
+    describe('deployment', () => {
+      it('should fail: cal; initialize() when already initialized', async () => {
+        const { mBasisRedemptionVaultWithSwapper } = await loadFixture(
+          defaultDeploy,
+        );
+
+        await expect(
+          mBasisRedemptionVaultWithSwapper[
+            'initialize(address,(address,address),(address,address),(uint256,uint256),address,uint256,uint256,(uint256,uint256,uint256),address,address,address)'
+          ](
+            constants.AddressZero,
+            {
+              mToken: constants.AddressZero,
+              mTokenDataFeed: constants.AddressZero,
+            },
+            {
+              feeReceiver: constants.AddressZero,
+              tokensReceiver: constants.AddressZero,
+            },
+            {
+              instantFee: 0,
+              instantDailyLimit: 0,
+            },
+            constants.AddressZero,
+            0,
+            0,
+            {
+              fiatAdditionalFee: 0,
+              fiatFlatFee: 0,
+              minFiatRedeemAmount: 0,
+            },
+            constants.AddressZero,
+            constants.AddressZero,
+            constants.AddressZero,
+          ),
+        ).revertedWith('Initializable: contract is already initialized');
+      });
+    });
+
     describe('setLiquidityProvider()', () => {
       it('should fail: call from address without M_BASIS_REDEMPTION_VAULT_ADMIN_ROLE role', async () => {
         const { mBasisRedemptionVaultWithSwapper, regularAccounts, owner } =
@@ -147,904 +231,969 @@ describe('RedemptionVault', function () {
       });
     });
 
-    it('should fail: when there is no token in vault', async () => {
-      const {
-        owner,
-        mBasisRedemptionVaultWithSwapper,
-        stableCoins,
-        mTBILL,
-        mBASIS,
-        mTokenToUsdDataFeed,
-        mBASISToUsdDataFeed,
-      } = await loadFixture(defaultDeploy);
-
-      await redeemInstantWithSwapperTest(
-        {
-          mBasisRedemptionVaultWithSwapper,
+    describe('redeemInstant()', () => {
+      it('should fail: when there is no token in vault', async () => {
+        const {
           owner,
+          mBasisRedemptionVaultWithSwapper,
+          stableCoins,
           mTBILL,
           mBASIS,
-          mBASISToUsdDataFeed,
           mTokenToUsdDataFeed,
-        },
-        stableCoins.dai,
-        1,
-        {
-          revertMessage: 'MV: token not exists',
-        },
-      );
-    });
+          mBASISToUsdDataFeed,
+        } = await loadFixture(defaultDeploy);
 
-    it('should fail: when trying to redeem 0 amount', async () => {
-      const {
-        owner,
-        mBasisRedemptionVaultWithSwapper,
-        stableCoins,
-        mTBILL,
-        mBASIS,
-        mTokenToUsdDataFeed,
-        mBASISToUsdDataFeed,
-        dataFeed,
-      } = await loadFixture(defaultDeploy);
+        await redeemInstantWithSwapperTest(
+          {
+            mBasisRedemptionVaultWithSwapper,
+            owner,
+            mTBILL,
+            mBASIS,
+            mBASISToUsdDataFeed,
+            mTokenToUsdDataFeed,
+          },
+          stableCoins.dai,
+          1,
+          {
+            revertMessage: 'MV: token not exists',
+          },
+        );
+      });
 
-      await addPaymentTokenTest(
-        { vault: mBasisRedemptionVaultWithSwapper, owner },
-        stableCoins.dai,
-        dataFeed.address,
-        0,
-        true,
-      );
-      await redeemInstantWithSwapperTest(
-        {
-          mBasisRedemptionVaultWithSwapper,
+      it('should fail: when trying to redeem 0 amount', async () => {
+        const {
           owner,
+          mBasisRedemptionVaultWithSwapper,
+          stableCoins,
           mTBILL,
           mBASIS,
-          mBASISToUsdDataFeed,
           mTokenToUsdDataFeed,
-        },
-        stableCoins.dai,
-        0,
-        {
-          revertMessage: 'RV: invalid amount',
-        },
-      );
-    });
+          mBASISToUsdDataFeed,
+          dataFeed,
+        } = await loadFixture(defaultDeploy);
 
-    it('should fail: when function paused', async () => {
-      const {
-        owner,
-        mBasisRedemptionVaultWithSwapper,
-        stableCoins,
-        mTBILL,
-        mBASIS,
-        mTokenToUsdDataFeed,
-        mBASISToUsdDataFeed,
-        dataFeed,
-        regularAccounts,
-      } = await loadFixture(defaultDeploy);
+        await addPaymentTokenTest(
+          { vault: mBasisRedemptionVaultWithSwapper, owner },
+          stableCoins.dai,
+          dataFeed.address,
+          0,
+          true,
+        );
+        await redeemInstantWithSwapperTest(
+          {
+            mBasisRedemptionVaultWithSwapper,
+            owner,
+            mTBILL,
+            mBASIS,
+            mBASISToUsdDataFeed,
+            mTokenToUsdDataFeed,
+          },
+          stableCoins.dai,
+          0,
+          {
+            revertMessage: 'RV: invalid amount',
+          },
+        );
+      });
 
-      await mintToken(mBASIS, regularAccounts[0], 100);
-      await approveBase18(
-        regularAccounts[0],
-        stableCoins.dai,
-        mBasisRedemptionVaultWithSwapper,
-        100,
-      );
-      await addPaymentTokenTest(
-        { vault: mBasisRedemptionVaultWithSwapper, owner },
-        stableCoins.dai,
-        dataFeed.address,
-        0,
-        true,
-      );
-      const selector = encodeFnSelector(
-        'redeemInstant(address,uint256,uint256)',
-      );
-      await pauseVaultFn(mBasisRedemptionVaultWithSwapper, selector);
-      await redeemInstantWithSwapperTest(
-        {
-          mBasisRedemptionVaultWithSwapper,
+      it('should fail: when function paused', async () => {
+        const {
           owner,
+          mBasisRedemptionVaultWithSwapper,
+          stableCoins,
           mTBILL,
           mBASIS,
-          mBASISToUsdDataFeed,
           mTokenToUsdDataFeed,
-        },
-        stableCoins.dai,
-        1,
-        {
-          from: regularAccounts[0],
-          revertMessage: 'Pausable: fn paused',
-        },
-      );
-    });
+          mBASISToUsdDataFeed,
+          dataFeed,
+          regularAccounts,
+        } = await loadFixture(defaultDeploy);
 
-    it('should fail: call with insufficient allowance', async () => {
-      const {
-        owner,
-        mBasisRedemptionVaultWithSwapper,
-        stableCoins,
-        mTBILL,
-        mBASIS,
-        mTokenToUsdDataFeed,
-        mBASISToUsdDataFeed,
-        dataFeed,
-      } = await loadFixture(defaultDeploy);
-
-      await mintToken(mBASIS, owner, 100);
-
-      await addPaymentTokenTest(
-        { vault: mBasisRedemptionVaultWithSwapper, owner },
-        stableCoins.dai,
-        dataFeed.address,
-        0,
-        true,
-      );
-      await redeemInstantWithSwapperTest(
-        {
+        await mintToken(mBASIS, regularAccounts[0], 100);
+        await approveBase18(
+          regularAccounts[0],
+          stableCoins.dai,
           mBasisRedemptionVaultWithSwapper,
+          100,
+        );
+        await addPaymentTokenTest(
+          { vault: mBasisRedemptionVaultWithSwapper, owner },
+          stableCoins.dai,
+          dataFeed.address,
+          0,
+          true,
+        );
+        const selector = encodeFnSelector(
+          'redeemInstant(address,uint256,uint256)',
+        );
+        await pauseVaultFn(mBasisRedemptionVaultWithSwapper, selector);
+        await redeemInstantWithSwapperTest(
+          {
+            mBasisRedemptionVaultWithSwapper,
+            owner,
+            mTBILL,
+            mBASIS,
+            mBASISToUsdDataFeed,
+            mTokenToUsdDataFeed,
+          },
+          stableCoins.dai,
+          1,
+          {
+            from: regularAccounts[0],
+            revertMessage: 'Pausable: fn paused',
+          },
+        );
+      });
+
+      it('should fail: call with insufficient allowance', async () => {
+        const {
           owner,
+          mBasisRedemptionVaultWithSwapper,
+          stableCoins,
           mTBILL,
           mBASIS,
-          mBASISToUsdDataFeed,
           mTokenToUsdDataFeed,
-        },
-        stableCoins.dai,
-        1,
-        {
-          revertMessage: 'ERC20: insufficient allowance',
-        },
-      );
-    });
+          mBASISToUsdDataFeed,
+          dataFeed,
+        } = await loadFixture(defaultDeploy);
 
-    it('should fail: call with insufficient balance', async () => {
-      const {
-        owner,
-        mBasisRedemptionVaultWithSwapper,
-        stableCoins,
-        mTBILL,
-        mBASIS,
-        mTokenToUsdDataFeed,
-        mBASISToUsdDataFeed,
-        dataFeed,
-      } = await loadFixture(defaultDeploy);
+        await mintToken(mBASIS, owner, 100);
 
-      await approveBase18(owner, mBASIS, mBasisRedemptionVaultWithSwapper, 15);
+        await addPaymentTokenTest(
+          { vault: mBasisRedemptionVaultWithSwapper, owner },
+          stableCoins.dai,
+          dataFeed.address,
+          0,
+          true,
+        );
+        await redeemInstantWithSwapperTest(
+          {
+            mBasisRedemptionVaultWithSwapper,
+            owner,
+            mTBILL,
+            mBASIS,
+            mBASISToUsdDataFeed,
+            mTokenToUsdDataFeed,
+          },
+          stableCoins.dai,
+          1,
+          {
+            revertMessage: 'ERC20: insufficient allowance',
+          },
+        );
+      });
 
-      await addPaymentTokenTest(
-        { vault: mBasisRedemptionVaultWithSwapper, owner },
-        stableCoins.dai,
-        dataFeed.address,
-        0,
-        true,
-      );
-      await redeemInstantWithSwapperTest(
-        {
-          mBasisRedemptionVaultWithSwapper,
+      it('should fail: call with insufficient balance', async () => {
+        const {
           owner,
+          mBasisRedemptionVaultWithSwapper,
+          stableCoins,
           mTBILL,
           mBASIS,
-          mBASISToUsdDataFeed,
           mTokenToUsdDataFeed,
-        },
-        stableCoins.dai,
-        1,
-        {
-          revertMessage: 'ERC20: transfer amount exceeds balance',
-        },
-      );
+          mBASISToUsdDataFeed,
+          dataFeed,
+        } = await loadFixture(defaultDeploy);
 
-      await mintToken(stableCoins.dai, mBasisRedemptionVaultWithSwapper, 100);
-      await mintToken(mBASIS, owner, 10);
-      await redeemInstantWithSwapperTest(
-        {
-          mBasisRedemptionVaultWithSwapper,
+        await approveBase18(
           owner,
+          mBASIS,
+          mBasisRedemptionVaultWithSwapper,
+          15,
+        );
+
+        await addPaymentTokenTest(
+          { vault: mBasisRedemptionVaultWithSwapper, owner },
+          stableCoins.dai,
+          dataFeed.address,
+          0,
+          true,
+        );
+        await redeemInstantWithSwapperTest(
+          {
+            mBasisRedemptionVaultWithSwapper,
+            owner,
+            mTBILL,
+            mBASIS,
+            mBASISToUsdDataFeed,
+            mTokenToUsdDataFeed,
+          },
+          stableCoins.dai,
+          1,
+          {
+            revertMessage: 'ERC20: transfer amount exceeds balance',
+          },
+        );
+
+        await mintToken(stableCoins.dai, mBasisRedemptionVaultWithSwapper, 100);
+        await mintToken(mBASIS, owner, 10);
+        await redeemInstantWithSwapperTest(
+          {
+            mBasisRedemptionVaultWithSwapper,
+            owner,
+            mTBILL,
+            mBASIS,
+            mBASISToUsdDataFeed,
+            mTokenToUsdDataFeed,
+          },
+          stableCoins.dai,
+          15,
+          {
+            revertMessage: 'ERC20: burn amount exceeds balance',
+          },
+        );
+      });
+
+      it('should fail: dataFeed rate 0 ', async () => {
+        const {
+          owner,
+          mBasisRedemptionVaultWithSwapper,
+          stableCoins,
           mTBILL,
           mBASIS,
-          mBASISToUsdDataFeed,
           mTokenToUsdDataFeed,
-        },
-        stableCoins.dai,
-        15,
-        {
-          revertMessage: 'ERC20: burn amount exceeds balance',
-        },
-      );
-    });
+          mBASISToUsdDataFeed,
+          dataFeed,
+          mockedAggregator,
+          mockedAggregatorMToken,
+          mockedAggregatorMBASIS,
+        } = await loadFixture(defaultDeploy);
 
-    it('should fail: dataFeed rate 0 ', async () => {
-      const {
-        owner,
-        mBasisRedemptionVaultWithSwapper,
-        stableCoins,
-        mTBILL,
-        mBASIS,
-        mTokenToUsdDataFeed,
-        mBASISToUsdDataFeed,
-        dataFeed,
-        mockedAggregator,
-        mockedAggregatorMToken,
-        mockedAggregatorMBASIS,
-      } = await loadFixture(defaultDeploy);
-
-      await mintToken(mBASIS, owner, 100_000);
-      await approveBase18(
-        owner,
-        mBASIS,
-        mBasisRedemptionVaultWithSwapper,
-        100_000,
-      );
-
-      await addPaymentTokenTest(
-        { vault: mBasisRedemptionVaultWithSwapper, owner },
-        stableCoins.dai,
-        dataFeed.address,
-        0,
-        true,
-      );
-
-      await setRoundData({ mockedAggregator }, 0);
-      await redeemInstantWithSwapperTest(
-        {
-          mBasisRedemptionVaultWithSwapper,
+        await mintToken(mBASIS, owner, 100_000);
+        await approveBase18(
           owner,
+          mBASIS,
+          mBasisRedemptionVaultWithSwapper,
+          100_000,
+        );
+
+        await addPaymentTokenTest(
+          { vault: mBasisRedemptionVaultWithSwapper, owner },
+          stableCoins.dai,
+          dataFeed.address,
+          0,
+          true,
+        );
+
+        await setRoundData({ mockedAggregator }, 0);
+        await redeemInstantWithSwapperTest(
+          {
+            mBasisRedemptionVaultWithSwapper,
+            owner,
+            mTBILL,
+            mBASIS,
+            mBASISToUsdDataFeed,
+            mTokenToUsdDataFeed,
+          },
+          stableCoins.dai,
+          10,
+          {
+            revertMessage: 'DF: feed is deprecated',
+          },
+        );
+
+        await setRoundData({ mockedAggregator }, 1);
+        await setRoundData({ mockedAggregator: mockedAggregatorMToken }, 0);
+        await redeemInstantWithSwapperTest(
+          {
+            mBasisRedemptionVaultWithSwapper,
+            owner,
+            mTBILL,
+            mBASIS,
+            mBASISToUsdDataFeed,
+            mTokenToUsdDataFeed,
+          },
+          stableCoins.dai,
+          10,
+          {
+            revertMessage: 'DF: feed is deprecated',
+          },
+        );
+
+        await setRoundData({ mockedAggregator: mockedAggregatorMToken }, 1);
+        await setRoundData({ mockedAggregator: mockedAggregatorMBASIS }, 0);
+        await redeemInstantWithSwapperTest(
+          {
+            mBasisRedemptionVaultWithSwapper,
+            owner,
+            mTBILL,
+            mBASIS,
+            mBASISToUsdDataFeed,
+            mTokenToUsdDataFeed,
+          },
+          stableCoins.dai,
+          10,
+          {
+            revertMessage: 'DF: feed is deprecated',
+          },
+        );
+      });
+
+      it('should fail: if min receive amount greater then actual', async () => {
+        const {
+          owner,
+          mBasisRedemptionVaultWithSwapper,
+          stableCoins,
           mTBILL,
           mBASIS,
-          mBASISToUsdDataFeed,
           mTokenToUsdDataFeed,
-        },
-        stableCoins.dai,
-        10,
-        {
-          revertMessage: 'DF: feed is deprecated',
-        },
-      );
+          mBASISToUsdDataFeed,
+          dataFeed,
+          mockedAggregator,
+        } = await loadFixture(defaultDeploy);
+        await addPaymentTokenTest(
+          { vault: mBasisRedemptionVaultWithSwapper, owner },
+          stableCoins.dai,
+          dataFeed.address,
+          0,
+          true,
+        );
 
-      await setRoundData({ mockedAggregator }, 1);
-      await setRoundData({ mockedAggregator: mockedAggregatorMToken }, 0);
-      await redeemInstantWithSwapperTest(
-        {
-          mBasisRedemptionVaultWithSwapper,
+        await setRoundData({ mockedAggregator }, 1);
+
+        await mintToken(mBASIS, owner, 100_000);
+        await approveBase18(
           owner,
+          mBASIS,
+          mBasisRedemptionVaultWithSwapper,
+          100_000,
+        );
+        await redeemInstantWithSwapperTest(
+          {
+            mBasisRedemptionVaultWithSwapper,
+            owner,
+            mTBILL,
+            mBASIS,
+            mBASISToUsdDataFeed,
+            mTokenToUsdDataFeed,
+            minAmount: parseUnits('10000'),
+          },
+          stableCoins.dai,
+          999,
+          {
+            revertMessage: 'RVS: minReceiveAmount > actual',
+          },
+        );
+      });
+
+      it('should fail: call for amount < minAmount', async () => {
+        const {
+          owner,
+          mBasisRedemptionVaultWithSwapper,
+          stableCoins,
           mTBILL,
           mBASIS,
-          mBASISToUsdDataFeed,
           mTokenToUsdDataFeed,
-        },
-        stableCoins.dai,
-        10,
-        {
-          revertMessage: 'DF: feed is deprecated',
-        },
-      );
+          mBASISToUsdDataFeed,
+          dataFeed,
+          mockedAggregator,
+        } = await loadFixture(defaultDeploy);
 
-      await setRoundData({ mockedAggregator: mockedAggregatorMToken }, 1);
-      await setRoundData({ mockedAggregator: mockedAggregatorMBASIS }, 0);
-      await redeemInstantWithSwapperTest(
-        {
-          mBasisRedemptionVaultWithSwapper,
+        await addPaymentTokenTest(
+          { vault: mBasisRedemptionVaultWithSwapper, owner },
+          stableCoins.dai,
+          dataFeed.address,
+          0,
+          true,
+        );
+
+        await setRoundData({ mockedAggregator }, 1);
+
+        await mintToken(mBASIS, owner, 100_000);
+        await approveBase18(
           owner,
+          mBASIS,
+          mBasisRedemptionVaultWithSwapper,
+          100_000,
+        );
+
+        await setMinAmountTest(
+          { vault: mBasisRedemptionVaultWithSwapper, owner },
+          100_000,
+        );
+
+        await redeemInstantWithSwapperTest(
+          {
+            mBasisRedemptionVaultWithSwapper,
+            owner,
+            mTBILL,
+            mBASIS,
+            mBASISToUsdDataFeed,
+            mTokenToUsdDataFeed,
+          },
+          stableCoins.dai,
+          99_999,
+          {
+            revertMessage: 'RV: amount < min',
+          },
+        );
+      });
+
+      it('should fail: if exceed allowance of deposit by token', async () => {
+        const {
+          owner,
+          mBasisRedemptionVaultWithSwapper,
+          stableCoins,
           mTBILL,
           mBASIS,
-          mBASISToUsdDataFeed,
           mTokenToUsdDataFeed,
-        },
-        stableCoins.dai,
-        10,
-        {
-          revertMessage: 'DF: feed is deprecated',
-        },
-      );
-    });
+          mBASISToUsdDataFeed,
+          dataFeed,
+          mockedAggregator,
+        } = await loadFixture(defaultDeploy);
 
-    it('should fail: if min receive amount greater then actual', async () => {
-      const {
-        owner,
-        mBasisRedemptionVaultWithSwapper,
-        stableCoins,
-        mTBILL,
-        mBASIS,
-        mTokenToUsdDataFeed,
-        mBASISToUsdDataFeed,
-        dataFeed,
-        mockedAggregator,
-      } = await loadFixture(defaultDeploy);
-      await addPaymentTokenTest(
-        { vault: mBasisRedemptionVaultWithSwapper, owner },
-        stableCoins.dai,
-        dataFeed.address,
-        0,
-        true,
-      );
+        await addPaymentTokenTest(
+          { vault: mBasisRedemptionVaultWithSwapper, owner },
+          stableCoins.dai,
+          dataFeed.address,
+          0,
+          true,
+        );
 
-      await setRoundData({ mockedAggregator }, 1);
+        await setRoundData({ mockedAggregator }, 1);
 
-      await mintToken(mBASIS, owner, 100_000);
-      await approveBase18(
-        owner,
-        mBASIS,
-        mBasisRedemptionVaultWithSwapper,
-        100_000,
-      );
-      await redeemInstantWithSwapperTest(
-        {
+        await mintToken(mBASIS, owner, 100_000);
+        await mintToken(
+          stableCoins.dai,
           mBasisRedemptionVaultWithSwapper,
+          1_000_000,
+        );
+        await approveBase18(
           owner,
+          mBASIS,
+          mBasisRedemptionVaultWithSwapper,
+          100_000,
+        );
+
+        await changeTokenAllowanceTest(
+          { vault: mBasisRedemptionVaultWithSwapper, owner },
+          stableCoins.dai.address,
+          100,
+        );
+
+        await redeemInstantWithSwapperTest(
+          {
+            mBasisRedemptionVaultWithSwapper,
+            owner,
+            mTBILL,
+            mBASIS,
+            mBASISToUsdDataFeed,
+            mTokenToUsdDataFeed,
+          },
+          stableCoins.dai,
+          99_999,
+          {
+            revertMessage: 'MV: exceed allowance',
+          },
+        );
+      });
+
+      it('should fail: if redeem daily limit exceeded', async () => {
+        const {
+          owner,
+          mBasisRedemptionVaultWithSwapper,
+          stableCoins,
           mTBILL,
           mBASIS,
-          mBASISToUsdDataFeed,
           mTokenToUsdDataFeed,
-          minAmount: parseUnits('10000'),
-        },
-        stableCoins.dai,
-        999,
-        {
-          revertMessage: 'RVS: minReceiveAmount > actual',
-        },
-      );
-    });
+          mBASISToUsdDataFeed,
+          dataFeed,
+          mockedAggregator,
+        } = await loadFixture(defaultDeploy);
 
-    it('should fail: call for amount < minAmount', async () => {
-      const {
-        owner,
-        mBasisRedemptionVaultWithSwapper,
-        stableCoins,
-        mTBILL,
-        mBASIS,
-        mTokenToUsdDataFeed,
-        mBASISToUsdDataFeed,
-        dataFeed,
-        mockedAggregator,
-      } = await loadFixture(defaultDeploy);
+        await addPaymentTokenTest(
+          { vault: mBasisRedemptionVaultWithSwapper, owner },
+          stableCoins.dai,
+          dataFeed.address,
+          0,
+          true,
+        );
 
-      await addPaymentTokenTest(
-        { vault: mBasisRedemptionVaultWithSwapper, owner },
-        stableCoins.dai,
-        dataFeed.address,
-        0,
-        true,
-      );
+        await setRoundData({ mockedAggregator }, 1);
 
-      await setRoundData({ mockedAggregator }, 1);
-
-      await mintToken(mBASIS, owner, 100_000);
-      await approveBase18(
-        owner,
-        mBASIS,
-        mBasisRedemptionVaultWithSwapper,
-        100_000,
-      );
-
-      await setMinAmountTest(
-        { vault: mBasisRedemptionVaultWithSwapper, owner },
-        100_000,
-      );
-
-      await redeemInstantWithSwapperTest(
-        {
+        await mintToken(mBASIS, owner, 100_000);
+        await mintToken(
+          stableCoins.dai,
           mBasisRedemptionVaultWithSwapper,
+          1_000_000,
+        );
+        await approveBase18(
           owner,
+          mBASIS,
+          mBasisRedemptionVaultWithSwapper,
+          100_000,
+        );
+
+        await setInstantDailyLimitTest(
+          { vault: mBasisRedemptionVaultWithSwapper, owner },
+          1000,
+        );
+
+        await redeemInstantWithSwapperTest(
+          {
+            mBasisRedemptionVaultWithSwapper,
+            owner,
+            mTBILL,
+            mBASIS,
+            mBASISToUsdDataFeed,
+            mTokenToUsdDataFeed,
+          },
+          stableCoins.dai,
+          99_999,
+          {
+            revertMessage: 'MV: exceed limit',
+          },
+        );
+      });
+
+      it('should fail: if some fee = 100%', async () => {
+        const {
+          owner,
+          mBasisRedemptionVaultWithSwapper,
+          stableCoins,
           mTBILL,
           mBASIS,
-          mBASISToUsdDataFeed,
           mTokenToUsdDataFeed,
-        },
-        stableCoins.dai,
-        99_999,
-        {
-          revertMessage: 'RV: amount < min',
-        },
-      );
-    });
+          mBASISToUsdDataFeed,
+          dataFeed,
+          mockedAggregator,
+        } = await loadFixture(defaultDeploy);
 
-    it('should fail: if exceed allowance of deposit by token', async () => {
-      const {
-        owner,
-        mBasisRedemptionVaultWithSwapper,
-        stableCoins,
-        mTBILL,
-        mBASIS,
-        mTokenToUsdDataFeed,
-        mBASISToUsdDataFeed,
-        dataFeed,
-        mockedAggregator,
-      } = await loadFixture(defaultDeploy);
+        await addPaymentTokenTest(
+          { vault: mBasisRedemptionVaultWithSwapper, owner },
+          stableCoins.dai,
+          dataFeed.address,
+          10000,
+          true,
+        );
 
-      await addPaymentTokenTest(
-        { vault: mBasisRedemptionVaultWithSwapper, owner },
-        stableCoins.dai,
-        dataFeed.address,
-        0,
-        true,
-      );
+        await setRoundData({ mockedAggregator }, 1);
 
-      await setRoundData({ mockedAggregator }, 1);
-
-      await mintToken(mBASIS, owner, 100_000);
-      await mintToken(
-        stableCoins.dai,
-        mBasisRedemptionVaultWithSwapper,
-        1_000_000,
-      );
-      await approveBase18(
-        owner,
-        mBASIS,
-        mBasisRedemptionVaultWithSwapper,
-        100_000,
-      );
-
-      await changeTokenAllowanceTest(
-        { vault: mBasisRedemptionVaultWithSwapper, owner },
-        stableCoins.dai.address,
-        100,
-      );
-
-      await redeemInstantWithSwapperTest(
-        {
+        await mintToken(mBASIS, owner, 100_000);
+        await mintToken(
+          stableCoins.dai,
           mBasisRedemptionVaultWithSwapper,
+          1_000_000,
+        );
+        await approveBase18(
           owner,
+          mBASIS,
+          mBasisRedemptionVaultWithSwapper,
+          100_000,
+        );
+
+        await redeemInstantWithSwapperTest(
+          {
+            mBasisRedemptionVaultWithSwapper,
+            owner,
+            mTBILL,
+            mBASIS,
+            mBASISToUsdDataFeed,
+            mTokenToUsdDataFeed,
+          },
+          stableCoins.dai,
+          100,
+          {
+            revertMessage: 'RV: amountMTokenIn < fee',
+          },
+        );
+        changeTokenFeeTest(
+          { vault: mBasisRedemptionVaultWithSwapper, owner },
+          stableCoins.dai.address,
+          0,
+        );
+        await setInstantFeeTest(
+          { vault: mBasisRedemptionVaultWithSwapper, owner },
+          10000,
+        );
+        await redeemInstantWithSwapperTest(
+          {
+            mBasisRedemptionVaultWithSwapper,
+            owner,
+            mTBILL,
+            mBASIS,
+            mBASISToUsdDataFeed,
+            mTokenToUsdDataFeed,
+          },
+          stableCoins.dai,
+          100,
+          {
+            revertMessage: 'RV: amountMTokenIn < fee',
+          },
+        );
+      });
+
+      it('should fail: greenlist enabled and user not in greenlist ', async () => {
+        const {
+          owner,
+          stableCoins,
           mTBILL,
+          mTokenToUsdDataFeed,
+          mBasisRedemptionVaultWithSwapper,
           mBASIS,
           mBASISToUsdDataFeed,
-          mTokenToUsdDataFeed,
-        },
-        stableCoins.dai,
-        99_999,
-        {
-          revertMessage: 'MV: exceed allowance',
-        },
-      );
-    });
+        } = await loadFixture(defaultDeploy);
 
-    it('should fail: if redeem daily limit exceeded', async () => {
-      const {
-        owner,
-        mBasisRedemptionVaultWithSwapper,
-        stableCoins,
-        mTBILL,
-        mBASIS,
-        mTokenToUsdDataFeed,
-        mBASISToUsdDataFeed,
-        dataFeed,
-        mockedAggregator,
-      } = await loadFixture(defaultDeploy);
+        await mBasisRedemptionVaultWithSwapper.setGreenlistEnable(true);
+        await redeemInstantWithSwapperTest(
+          {
+            mBasisRedemptionVaultWithSwapper,
+            owner,
+            mTBILL,
+            mBASIS,
+            mBASISToUsdDataFeed,
+            mTokenToUsdDataFeed,
+          },
+          stableCoins.dai,
+          100,
+          {
+            revertMessage: 'WMAC: hasnt role',
+          },
+        );
+      });
 
-      await addPaymentTokenTest(
-        { vault: mBasisRedemptionVaultWithSwapper, owner },
-        stableCoins.dai,
-        dataFeed.address,
-        0,
-        true,
-      );
-
-      await setRoundData({ mockedAggregator }, 1);
-
-      await mintToken(mBASIS, owner, 100_000);
-      await mintToken(
-        stableCoins.dai,
-        mBasisRedemptionVaultWithSwapper,
-        1_000_000,
-      );
-      await approveBase18(
-        owner,
-        mBASIS,
-        mBasisRedemptionVaultWithSwapper,
-        100_000,
-      );
-
-      await setInstantDailyLimitTest(
-        { vault: mBasisRedemptionVaultWithSwapper, owner },
-        1000,
-      );
-
-      await redeemInstantWithSwapperTest(
-        {
-          mBasisRedemptionVaultWithSwapper,
+      it('should fail: user in blacklist ', async () => {
+        const {
           owner,
+          stableCoins,
           mTBILL,
+          mTokenToUsdDataFeed,
+          mBasisRedemptionVaultWithSwapper,
           mBASIS,
           mBASISToUsdDataFeed,
-          mTokenToUsdDataFeed,
-        },
-        stableCoins.dai,
-        99_999,
-        {
-          revertMessage: 'MV: exceed limit',
-        },
-      );
-    });
+          regularAccounts,
+          blackListableTester,
+          accessControl,
+        } = await loadFixture(defaultDeploy);
 
-    it('should fail: if some fee = 100%', async () => {
-      const {
-        owner,
-        mBasisRedemptionVaultWithSwapper,
-        stableCoins,
-        mTBILL,
-        mBASIS,
-        mTokenToUsdDataFeed,
-        mBASISToUsdDataFeed,
-        dataFeed,
-        mockedAggregator,
-      } = await loadFixture(defaultDeploy);
+        await blackList(
+          { blacklistable: blackListableTester, accessControl, owner },
+          regularAccounts[0],
+        );
+        await redeemInstantWithSwapperTest(
+          {
+            mBasisRedemptionVaultWithSwapper,
+            owner,
+            mTBILL,
+            mBASIS,
+            mBASISToUsdDataFeed,
+            mTokenToUsdDataFeed,
+          },
+          stableCoins.dai,
+          100,
+          {
+            from: regularAccounts[0],
+            revertMessage: acErrors.WMAC_HAS_ROLE,
+          },
+        );
+      });
 
-      await addPaymentTokenTest(
-        { vault: mBasisRedemptionVaultWithSwapper, owner },
-        stableCoins.dai,
-        dataFeed.address,
-        10000,
-        true,
-      );
-
-      await setRoundData({ mockedAggregator }, 1);
-
-      await mintToken(mBASIS, owner, 100_000);
-      await mintToken(
-        stableCoins.dai,
-        mBasisRedemptionVaultWithSwapper,
-        1_000_000,
-      );
-      await approveBase18(
-        owner,
-        mBASIS,
-        mBasisRedemptionVaultWithSwapper,
-        100_000,
-      );
-
-      await redeemInstantWithSwapperTest(
-        {
-          mBasisRedemptionVaultWithSwapper,
+      it('should fail: user in sanctions list', async () => {
+        const {
           owner,
+          stableCoins,
           mTBILL,
+          mTokenToUsdDataFeed,
+          mBasisRedemptionVaultWithSwapper,
           mBASIS,
           mBASISToUsdDataFeed,
-          mTokenToUsdDataFeed,
-        },
-        stableCoins.dai,
-        100,
-        {
-          revertMessage: 'RV: amountMTokenIn < fee',
-        },
-      );
-      changeTokenFeeTest(
-        { vault: mBasisRedemptionVaultWithSwapper, owner },
-        stableCoins.dai.address,
-        0,
-      );
-      await setInstantFeeTest(
-        { vault: mBasisRedemptionVaultWithSwapper, owner },
-        10000,
-      );
-      await redeemInstantWithSwapperTest(
-        {
-          mBasisRedemptionVaultWithSwapper,
+          regularAccounts,
+          mockedSanctionsList,
+        } = await loadFixture(defaultDeploy);
+
+        await sanctionUser(
+          { sanctionsList: mockedSanctionsList },
+          regularAccounts[0],
+        );
+        await redeemInstantWithSwapperTest(
+          {
+            mBasisRedemptionVaultWithSwapper,
+            owner,
+            mTBILL,
+            mBASIS,
+            mBASISToUsdDataFeed,
+            mTokenToUsdDataFeed,
+          },
+          stableCoins.dai,
+          100,
+          {
+            from: regularAccounts[0],
+            revertMessage: 'WSL: sanctioned',
+          },
+        );
+      });
+
+      it('should fail: user try to instant redeem fiat', async () => {
+        const {
           owner,
+          mBasisRedemptionVaultWithSwapper,
+          stableCoins,
           mTBILL,
           mBASIS,
-          mBASISToUsdDataFeed,
           mTokenToUsdDataFeed,
-        },
-        stableCoins.dai,
-        100,
-        {
-          revertMessage: 'RV: amountMTokenIn < fee',
-        },
-      );
-    });
+          mBASISToUsdDataFeed,
+        } = await loadFixture(defaultDeploy);
 
-    it('should fail: greenlist enabled and user not in greenlist ', async () => {
-      const {
-        owner,
-        stableCoins,
-        mTBILL,
-        mTokenToUsdDataFeed,
-        mBasisRedemptionVaultWithSwapper,
-        mBASIS,
-        mBASISToUsdDataFeed,
-      } = await loadFixture(defaultDeploy);
-
-      await mBasisRedemptionVaultWithSwapper.setGreenlistEnable(true);
-      await redeemInstantWithSwapperTest(
-        {
+        await mintToken(mBASIS, owner, 100_000);
+        await mintToken(
+          stableCoins.dai,
           mBasisRedemptionVaultWithSwapper,
+          1_000_000,
+        );
+        await approveBase18(
           owner,
+          mBASIS,
+          mBasisRedemptionVaultWithSwapper,
+          100_000,
+        );
+
+        await redeemInstantWithSwapperTest(
+          {
+            mBasisRedemptionVaultWithSwapper,
+            owner,
+            mTBILL,
+            mBASIS,
+            mBASISToUsdDataFeed,
+            mTokenToUsdDataFeed,
+          },
+          await mBasisRedemptionVaultWithSwapper.MANUAL_FULLFILMENT_TOKEN(),
+          99_999,
+          {
+            revertMessage: 'MV: token not exists',
+          },
+        );
+      });
+
+      it('should fail: liquidity provider do not have mTBILL to swap', async () => {
+        const {
+          owner,
+          mBasisRedemptionVaultWithSwapper,
+          stableCoins,
           mTBILL,
           mBASIS,
-          mBASISToUsdDataFeed,
           mTokenToUsdDataFeed,
-        },
-        stableCoins.dai,
-        100,
-        {
-          revertMessage: 'WMAC: hasnt role',
-        },
-      );
-    });
+          mBASISToUsdDataFeed,
+          dataFeed,
+          redemptionVault,
+          liquidityProvider,
+        } = await loadFixture(defaultDeploy);
 
-    it('should fail: user in blacklist ', async () => {
-      const {
-        owner,
-        stableCoins,
-        mTBILL,
-        mTokenToUsdDataFeed,
-        mBasisRedemptionVaultWithSwapper,
-        mBASIS,
-        mBASISToUsdDataFeed,
-        regularAccounts,
-        blackListableTester,
-        accessControl,
-      } = await loadFixture(defaultDeploy);
-
-      await blackList(
-        { blacklistable: blackListableTester, accessControl, owner },
-        regularAccounts[0],
-      );
-      await redeemInstantWithSwapperTest(
-        {
-          mBasisRedemptionVaultWithSwapper,
+        await mintToken(mBASIS, owner, 100_000);
+        await mintToken(stableCoins.dai, mBasisRedemptionVaultWithSwapper, 10);
+        await approveBase18(
           owner,
+          mBASIS,
+          mBasisRedemptionVaultWithSwapper,
+          100_000,
+        );
+        await approveBase18(
+          liquidityProvider,
+          mTBILL,
+          mBasisRedemptionVaultWithSwapper,
+          100_000,
+        );
+
+        await addPaymentTokenTest(
+          { vault: mBasisRedemptionVaultWithSwapper, owner },
+          stableCoins.dai,
+          dataFeed.address,
+          100,
+          true,
+        );
+
+        await addPaymentTokenTest(
+          { vault: redemptionVault, owner },
+          stableCoins.dai,
+          dataFeed.address,
+          100,
+          true,
+        );
+
+        await redeemInstantWithSwapperTest(
+          {
+            mBasisRedemptionVaultWithSwapper,
+            owner,
+            mTBILL,
+            mBASIS,
+            mBASISToUsdDataFeed,
+            mTokenToUsdDataFeed,
+          },
+          stableCoins.dai,
+          200,
+          {
+            revertMessage: 'ERC20: transfer amount exceeds balance',
+          },
+        );
+      });
+
+      it('redeem 100 mBASIS, when contract have enough DAI and all fees are 0', async () => {
+        const {
+          owner,
+          mBasisRedemptionVaultWithSwapper,
+          stableCoins,
           mTBILL,
           mBASIS,
-          mBASISToUsdDataFeed,
           mTokenToUsdDataFeed,
-        },
-        stableCoins.dai,
-        100,
-        {
-          from: regularAccounts[0],
-          revertMessage: acErrors.WMAC_HAS_ROLE,
-        },
-      );
-    });
+          mBASISToUsdDataFeed,
+          dataFeed,
+          mockedAggregator,
+        } = await loadFixture(defaultDeploy);
 
-    it('should fail: user in sanctions list', async () => {
-      const {
-        owner,
-        stableCoins,
-        mTBILL,
-        mTokenToUsdDataFeed,
-        mBasisRedemptionVaultWithSwapper,
-        mBASIS,
-        mBASISToUsdDataFeed,
-        regularAccounts,
-        mockedSanctionsList,
-      } = await loadFixture(defaultDeploy);
+        await addPaymentTokenTest(
+          { vault: mBasisRedemptionVaultWithSwapper, owner },
+          stableCoins.dai,
+          dataFeed.address,
+          0,
+          true,
+        );
 
-      await sanctionUser(
-        { sanctionsList: mockedSanctionsList },
-        regularAccounts[0],
-      );
-      await redeemInstantWithSwapperTest(
-        {
+        await setRoundData({ mockedAggregator }, 1);
+
+        await mintToken(mBASIS, owner, 100_000);
+        await mintToken(
+          stableCoins.dai,
           mBasisRedemptionVaultWithSwapper,
+          1_000_000,
+        );
+        await approveBase18(
           owner,
+          mBASIS,
+          mBasisRedemptionVaultWithSwapper,
+          100_000,
+        );
+
+        await setInstantFeeTest(
+          {
+            vault: mBasisRedemptionVaultWithSwapper,
+            owner,
+          },
+          0,
+        );
+
+        await redeemInstantWithSwapperTest(
+          {
+            mBasisRedemptionVaultWithSwapper,
+            owner,
+            mTBILL,
+            mBASIS,
+            mBASISToUsdDataFeed,
+            mTokenToUsdDataFeed,
+          },
+          stableCoins.dai,
+          100,
+        );
+      });
+
+      it('redeem 100 mBASIS, when contract have enough DAI', async () => {
+        const {
+          owner,
+          mBasisRedemptionVaultWithSwapper,
+          stableCoins,
           mTBILL,
           mBASIS,
-          mBASISToUsdDataFeed,
           mTokenToUsdDataFeed,
-        },
-        stableCoins.dai,
-        100,
-        {
-          from: regularAccounts[0],
-          revertMessage: 'WSL: sanctioned',
-        },
-      );
-    });
+          mBASISToUsdDataFeed,
+          dataFeed,
+          mockedAggregator,
+        } = await loadFixture(defaultDeploy);
 
-    it('should fail: user try to instant redeem fiat', async () => {
-      const {
-        owner,
-        mBasisRedemptionVaultWithSwapper,
-        stableCoins,
-        mTBILL,
-        mBASIS,
-        mTokenToUsdDataFeed,
-        mBASISToUsdDataFeed,
-      } = await loadFixture(defaultDeploy);
+        await addPaymentTokenTest(
+          { vault: mBasisRedemptionVaultWithSwapper, owner },
+          stableCoins.dai,
+          dataFeed.address,
+          0,
+          true,
+        );
 
-      await mintToken(mBASIS, owner, 100_000);
-      await mintToken(
-        stableCoins.dai,
-        mBasisRedemptionVaultWithSwapper,
-        1_000_000,
-      );
-      await approveBase18(
-        owner,
-        mBASIS,
-        mBasisRedemptionVaultWithSwapper,
-        100_000,
-      );
+        await setRoundData({ mockedAggregator }, 1);
 
-      await redeemInstantWithSwapperTest(
-        {
+        await mintToken(mBASIS, owner, 100_000);
+        await mintToken(
+          stableCoins.dai,
           mBasisRedemptionVaultWithSwapper,
+          1_000_000,
+        );
+        await approveBase18(
           owner,
+          mBASIS,
+          mBasisRedemptionVaultWithSwapper,
+          100_000,
+        );
+
+        await redeemInstantWithSwapperTest(
+          {
+            mBasisRedemptionVaultWithSwapper,
+            owner,
+            mTBILL,
+            mBASIS,
+            mBASISToUsdDataFeed,
+            mTokenToUsdDataFeed,
+          },
+          stableCoins.dai,
+          100,
+        );
+      });
+
+      it('redeem 100 mBASIS, when contract do not have enough DAI and need to use mTBILL vault', async () => {
+        const {
+          owner,
+          mBasisRedemptionVaultWithSwapper,
+          stableCoins,
           mTBILL,
           mBASIS,
-          mBASISToUsdDataFeed,
           mTokenToUsdDataFeed,
-        },
-        await mBasisRedemptionVaultWithSwapper.MANUAL_FULLFILMENT_TOKEN(),
-        99_999,
-        {
-          revertMessage: 'MV: token not exists',
-        },
-      );
-    });
+          mBASISToUsdDataFeed,
+          dataFeed,
+          redemptionVault,
+          liquidityProvider,
+        } = await loadFixture(defaultDeploy);
 
-    it('should fail: liquidity provider do not have mTBILL to swap', async () => {
-      const {
-        owner,
-        mBasisRedemptionVaultWithSwapper,
-        stableCoins,
-        mTBILL,
-        mBASIS,
-        mTokenToUsdDataFeed,
-        mBASISToUsdDataFeed,
-        dataFeed,
-        redemptionVault,
-        liquidityProvider,
-      } = await loadFixture(defaultDeploy);
+        await addPaymentTokenTest(
+          { vault: mBasisRedemptionVaultWithSwapper, owner },
+          stableCoins.dai,
+          dataFeed.address,
+          100,
+          true,
+        );
+        await addPaymentTokenTest(
+          { vault: redemptionVault, owner },
+          stableCoins.dai,
+          dataFeed.address,
+          100,
+          true,
+        );
 
-      await mintToken(mBASIS, owner, 100_000);
-      await mintToken(stableCoins.dai, mBasisRedemptionVaultWithSwapper, 10);
-      await approveBase18(
-        owner,
-        mBASIS,
-        mBasisRedemptionVaultWithSwapper,
-        100_000,
-      );
-      await approveBase18(
-        liquidityProvider,
-        mTBILL,
-        mBasisRedemptionVaultWithSwapper,
-        100_000,
-      );
-
-      await addPaymentTokenTest(
-        { vault: mBasisRedemptionVaultWithSwapper, owner },
-        stableCoins.dai,
-        dataFeed.address,
-        100,
-        true,
-      );
-
-      await addPaymentTokenTest(
-        { vault: redemptionVault, owner },
-        stableCoins.dai,
-        dataFeed.address,
-        100,
-        true,
-      );
-
-      await redeemInstantWithSwapperTest(
-        {
-          mBasisRedemptionVaultWithSwapper,
+        await mintToken(mBASIS, owner, 100_000);
+        await mintToken(mTBILL, liquidityProvider, 100_000);
+        await mintToken(stableCoins.dai, mBasisRedemptionVaultWithSwapper, 10);
+        await mintToken(stableCoins.dai, redemptionVault, 1_000_000);
+        await approveBase18(
           owner,
-          mTBILL,
           mBASIS,
-          mBASISToUsdDataFeed,
-          mTokenToUsdDataFeed,
-        },
-        stableCoins.dai,
-        200,
-        {
-          revertMessage: 'ERC20: transfer amount exceeds balance',
-        },
-      );
-    });
-
-    it('redeem 100 mBASIS, when contract have enough DAI', async () => {
-      const {
-        owner,
-        mBasisRedemptionVaultWithSwapper,
-        stableCoins,
-        mTBILL,
-        mBASIS,
-        mTokenToUsdDataFeed,
-        mBASISToUsdDataFeed,
-        dataFeed,
-        mockedAggregator,
-      } = await loadFixture(defaultDeploy);
-
-      await addPaymentTokenTest(
-        { vault: mBasisRedemptionVaultWithSwapper, owner },
-        stableCoins.dai,
-        dataFeed.address,
-        0,
-        true,
-      );
-
-      await setRoundData({ mockedAggregator }, 1);
-
-      await mintToken(mBASIS, owner, 100_000);
-      await mintToken(
-        stableCoins.dai,
-        mBasisRedemptionVaultWithSwapper,
-        1_000_000,
-      );
-      await approveBase18(
-        owner,
-        mBASIS,
-        mBasisRedemptionVaultWithSwapper,
-        100_000,
-      );
-
-      await redeemInstantWithSwapperTest(
-        {
           mBasisRedemptionVaultWithSwapper,
-          owner,
+          100_000,
+        );
+        await approveBase18(
+          liquidityProvider,
           mTBILL,
-          mBASIS,
-          mBASISToUsdDataFeed,
-          mTokenToUsdDataFeed,
-        },
-        stableCoins.dai,
-        100,
-      );
-    });
-
-    it('redeem 100 mBASIS, when contract do not have enough DAI and need to use mTBILL vault', async () => {
-      const {
-        owner,
-        mBasisRedemptionVaultWithSwapper,
-        stableCoins,
-        mTBILL,
-        mBASIS,
-        mTokenToUsdDataFeed,
-        mBASISToUsdDataFeed,
-        dataFeed,
-        redemptionVault,
-        liquidityProvider,
-      } = await loadFixture(defaultDeploy);
-
-      await addPaymentTokenTest(
-        { vault: mBasisRedemptionVaultWithSwapper, owner },
-        stableCoins.dai,
-        dataFeed.address,
-        100,
-        true,
-      );
-      await addPaymentTokenTest(
-        { vault: redemptionVault, owner },
-        stableCoins.dai,
-        dataFeed.address,
-        100,
-        true,
-      );
-
-      await mintToken(mBASIS, owner, 100_000);
-      await mintToken(mTBILL, liquidityProvider, 100_000);
-      await mintToken(stableCoins.dai, mBasisRedemptionVaultWithSwapper, 10);
-      await mintToken(stableCoins.dai, redemptionVault, 1_000_000);
-      await approveBase18(
-        owner,
-        mBASIS,
-        mBasisRedemptionVaultWithSwapper,
-        100_000,
-      );
-      await approveBase18(
-        liquidityProvider,
-        mTBILL,
-        mBasisRedemptionVaultWithSwapper,
-        1000000,
-      );
-
-      await redeemInstantWithSwapperTest(
-        {
           mBasisRedemptionVaultWithSwapper,
-          owner,
-          mTBILL,
-          mBASIS,
-          mBASISToUsdDataFeed,
-          mTokenToUsdDataFeed,
-          swap: true,
-        },
-        stableCoins.dai,
-        100,
-      );
+          1000000,
+        );
+
+        await redeemInstantWithSwapperTest(
+          {
+            mBasisRedemptionVaultWithSwapper,
+            owner,
+            mTBILL,
+            mBASIS,
+            mBASISToUsdDataFeed,
+            mTokenToUsdDataFeed,
+            swap: true,
+          },
+          stableCoins.dai,
+          100,
+        );
+      });
     });
   });
 
@@ -1300,6 +1449,58 @@ describe('RedemptionVault', function () {
     });
   });
 
+  describe('setTokensReceiver()', () => {
+    it('should fail: call from address without REDEMPTION_VAULT_ADMIN_ROLE role', async () => {
+      const { owner, redemptionVault, regularAccounts } = await loadFixture(
+        defaultDeploy,
+      );
+
+      await setTokensReceiverTest(
+        { vault: redemptionVault, owner },
+        regularAccounts[0].address,
+        {
+          from: regularAccounts[0],
+          revertMessage: acErrors.WMAC_HASNT_ROLE,
+        },
+      );
+    });
+
+    it('should fail: call with zero address receiver', async () => {
+      const { owner, redemptionVault } = await loadFixture(defaultDeploy);
+
+      await setTokensReceiverTest(
+        { vault: redemptionVault, owner },
+        constants.AddressZero,
+        {
+          revertMessage: 'zero address',
+        },
+      );
+    });
+
+    it('should fail: call with address(this) receiver', async () => {
+      const { owner, redemptionVault } = await loadFixture(defaultDeploy);
+
+      await setTokensReceiverTest(
+        { vault: redemptionVault, owner },
+        redemptionVault.address,
+        {
+          revertMessage: 'invalid address',
+        },
+      );
+    });
+
+    it('call from address without REDEMPTION_VAULT_ADMIN_ROLE role', async () => {
+      const { owner, redemptionVault, regularAccounts } = await loadFixture(
+        defaultDeploy,
+      );
+
+      await setTokensReceiverTest(
+        { vault: redemptionVault, owner },
+        regularAccounts[0].address,
+      );
+    });
+  });
+
   describe('setMinAmount()', () => {
     it('should fail: call from address without DEPOSIT_VAULT_ADMIN_ROLE role', async () => {
       const { owner, redemptionVault, regularAccounts } = await loadFixture(
@@ -1333,6 +1534,62 @@ describe('RedemptionVault', function () {
     it('call from address with REDEMPTION_VAULT_ADMIN_ROLE role', async () => {
       const { owner, redemptionVault } = await loadFixture(defaultDeploy);
       await setMinFiatRedeemAmountTest({ redemptionVault, owner }, 1.1);
+    });
+  });
+
+  describe('setFeeReceiver()', () => {
+    it('should fail: call from address without REDEMPTION_VAULT_ADMIN_ROLE role', async () => {
+      const { owner, redemptionVault, regularAccounts } = await loadFixture(
+        defaultDeploy,
+      );
+
+      await setFeeReceiverTest(
+        { vault: redemptionVault, owner },
+        regularAccounts[0].address,
+        {
+          from: regularAccounts[0],
+          revertMessage: acErrors.WMAC_HASNT_ROLE,
+        },
+      );
+    });
+
+    it('call from address with REDEMPTION_VAULT_ADMIN_ROLE role', async () => {
+      const { owner, redemptionVault, regularAccounts } = await loadFixture(
+        defaultDeploy,
+      );
+      await setFeeReceiverTest(
+        { vault: redemptionVault, owner },
+        regularAccounts[0].address,
+      );
+    });
+  });
+
+  describe('sanctionsListAdminRole()', () => {
+    it('should return same role as vaultRole()', async () => {
+      const { redemptionVault } = await loadFixture(defaultDeploy);
+      const vaultRole = await redemptionVault.vaultRole();
+      const sanctionsListAdminRole =
+        await redemptionVault.sanctionsListAdminRole();
+
+      expect(sanctionsListAdminRole).eq(vaultRole);
+    });
+  });
+
+  describe('setFiatFlatFee()', () => {
+    it('should fail: call from address without REDEMPTION_VAULT_ADMIN_ROLE role', async () => {
+      const { owner, redemptionVault, regularAccounts } = await loadFixture(
+        defaultDeploy,
+      );
+
+      await setFiatFlatFeeTest({ redemptionVault, owner }, 100, {
+        from: regularAccounts[0],
+        revertMessage: acErrors.WMAC_HASNT_ROLE,
+      });
+    });
+
+    it('call from address with REDEMPTION_VAULT_ADMIN_ROLE role', async () => {
+      const { owner, redemptionVault } = await loadFixture(defaultDeploy);
+      await setFiatFlatFeeTest({ redemptionVault, owner }, 100);
     });
   });
 
@@ -3853,6 +4110,12 @@ describe('RedemptionVault', function () {
       );
       const requestId = 0;
 
+      await changeTokenAllowanceTest(
+        { vault: redemptionVault, owner },
+        constants.AddressZero,
+        parseUnits('100'),
+      );
+
       await approveRedeemRequestTest(
         { redemptionVault, owner, mTBILL, mTokenToUsdDataFeed },
         +requestId,
@@ -4564,6 +4827,65 @@ describe('RedemptionVault', function () {
         { redemptionVault, owner, mTBILL, mTokenToUsdDataFeed },
         +requestId,
       );
+    });
+  });
+
+  describe('_convertUsdToToken', () => {
+    it('should fail: when amountUsd == 0', async () => {
+      const { redemptionVault } = await loadFixture(defaultDeploy);
+
+      await expect(
+        redemptionVault.convertUsdToTokenTest(0, constants.AddressZero),
+      ).revertedWith('RV: amount zero');
+    });
+
+    it('should fail: when tokenRate == 0', async () => {
+      const { redemptionVault } = await loadFixture(defaultDeploy);
+
+      await redemptionVault.setOverrideGetTokenRate(true);
+      await redemptionVault.setGetTokenRateValue(0);
+
+      await expect(
+        redemptionVault.convertUsdToTokenTest(1, constants.AddressZero),
+      ).revertedWith('RV: rate zero');
+    });
+  });
+
+  describe('_convertMTokenToUsd', () => {
+    it('should fail: when amountMToken == 0', async () => {
+      const { redemptionVault } = await loadFixture(defaultDeploy);
+
+      await expect(redemptionVault.convertMTokenToUsdTest(0)).revertedWith(
+        'RV: amount zero',
+      );
+    });
+
+    it('should fail: when amountMToken == 0', async () => {
+      const { redemptionVault } = await loadFixture(defaultDeploy);
+
+      await redemptionVault.setOverrideGetTokenRate(true);
+      await redemptionVault.setGetTokenRateValue(0);
+
+      await expect(redemptionVault.convertMTokenToUsdTest(1)).revertedWith(
+        'RV: rate zero',
+      );
+    });
+  });
+
+  describe('_calcAndValidateRedeem', () => {
+    it('should fail: when tokenOut is not MANUAL_FULLFILMENT_TOKEN but isFiat = true', async () => {
+      const { redemptionVault, stableCoins, owner, dataFeed } =
+        await loadFixture(defaultDeploy);
+
+      await expect(
+        redemptionVault.calcAndValidateRedeemTest(
+          constants.AddressZero,
+          stableCoins.dai.address,
+          parseUnits('100'),
+          false,
+          true,
+        ),
+      ).revertedWith('RV: tokenOut != fiat');
     });
   });
 });

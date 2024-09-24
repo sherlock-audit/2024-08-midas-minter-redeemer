@@ -100,14 +100,6 @@ describe('EUsdRedemptionVault', function () {
         accessControl,
       } = await loadFixture(defaultDeploy);
 
-      console.log(
-        'have role',
-        await accessControl.hasRole(
-          await redemptionVault.E_USD_REDEMPTION_VAULT_ADMIN_ROLE(),
-          owner.address,
-        ),
-      );
-
       await pauseVault(redemptionVault, {
         from: otherOwner,
         revertMessage: acErrors.WMAC_HASNT_ROLE,

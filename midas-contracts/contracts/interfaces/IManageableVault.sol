@@ -142,6 +142,12 @@ interface IManageableVault {
     event SetFeeReceiver(address indexed caller, address indexed reciever);
 
     /**
+     * @param caller function caller (msg.sender)
+     * @param reciever new reciever address
+     */
+    event SetTokensReceiver(address indexed caller, address indexed reciever);
+
+    /**
      * @param user user address
      * @param enable is enabled
      */
@@ -246,6 +252,13 @@ interface IManageableVault {
      * @param reciever new fee reciever address
      */
     function setFeeReceiver(address reciever) external;
+
+    /**
+     * @notice set new reciever for tokens.
+     * can be called only from permissioned actor.
+     * @param reciever new token reciever address
+     */
+    function setTokensReceiver(address reciever) external;
 
     /**
      * @notice set operation fee percent.

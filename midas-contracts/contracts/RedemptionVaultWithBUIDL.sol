@@ -7,8 +7,6 @@ import {SafeERC20Upgradeable as SafeERC20} from "@openzeppelin/contracts-upgrade
 import "./RedemptionVault.sol";
 
 import "./interfaces/buidl/IRedemption.sol";
-import "./interfaces/buidl/ILiquiditySource.sol";
-import "./interfaces/buidl/ISettlement.sol";
 import "./libraries/DecimalsCorrectionLibrary.sol";
 
 /**
@@ -20,15 +18,28 @@ contract RedemptionVaultWIthBUIDL is RedemptionVault {
     using DecimalsCorrectionLibrary for uint256;
     using SafeERC20 for IERC20;
 
+    /**
+     * @notice minimum amount of BUIDL to redeem. Will redeem at least this amount of BUIDL.
+     */
+    uint256 public minBuidlToRedeem;
+
+    uint256 public minBuidlBalance;
+
     IRedemption public buidlRedemption;
 
-    IERC20 public buidl;
-
-    ILiquiditySource public buidlLiquiditySource;
-
-    ISettlement public buidlSettlement;
-
     uint256[50] private __gap;
+
+    /**
+     * @param minBuidlToRedeem new min amount of BUIDL to redeem
+     * @param sender address who set new min amount of BUIDL to redeem
+     */
+    event SetMinBuidlToRedeem(uint256 minBuidlToRedeem, address sender);
+
+    /**
+     * @param minBuidlBalance new `minBuidlBalance` value
+     * @param sender address who set new `minBuidlBalance`
+     */
+    event SetMinBuidlBalance(uint256 minBuidlBalance, address sender);
 
     /**
      * @notice upgradeable pattern contract`s initializer
@@ -53,7 +64,9 @@ contract RedemptionVaultWIthBUIDL is RedemptionVault {
         uint256 _minAmount,
         FiatRedeptionInitParams calldata _fiatRedemptionInitParams,
         address _requestRedeemer,
-        address _buidlRedemption
+        address _buidlRedemption,
+        uint256 _minBuidlToRedeem,
+        uint256 _minBuidlBalance
     ) external initializer {
         __RedemptionVault_init(
             _ac,
@@ -68,9 +81,34 @@ contract RedemptionVaultWIthBUIDL is RedemptionVault {
         );
         _validateAddress(_buidlRedemption, false);
         buidlRedemption = IRedemption(_buidlRedemption);
-        buidlSettlement = ISettlement(buidlRedemption.settlement());
-        buidlLiquiditySource = ILiquiditySource(buidlRedemption.liquidity());
-        buidl = IERC20(buidlRedemption.asset());
+        minBuidlToRedeem = _minBuidlToRedeem;
+        minBuidlBalance = _minBuidlBalance;
+    }
+
+    /**
+     * @notice set min amount of BUIDL to redeem.
+     * @param _minBuidlToRedeem min amount of BUIDL to redeem
+     */
+    function setMinBuidlToRedeem(uint256 _minBuidlToRedeem)
+        external
+        onlyVaultAdmin
+    {
+        minBuidlToRedeem = _minBuidlToRedeem;
+
+        emit SetMinBuidlToRedeem(_minBuidlToRedeem, msg.sender);
+    }
+
+    /**
+     * @notice set new `minBuidlBalance` value.
+     * @param _minBuidlBalance new `minBuidlBalance` value
+     */
+    function setMinBuidlBalance(uint256 _minBuidlBalance)
+        external
+        onlyVaultAdmin
+    {
+        minBuidlBalance = _minBuidlBalance;
+
+        emit SetMinBuidlBalance(_minBuidlBalance, msg.sender);
     }
 
     /**
@@ -97,7 +135,7 @@ contract RedemptionVaultWIthBUIDL is RedemptionVault {
     {
         address user = msg.sender;
 
-        tokenOut = buidlLiquiditySource.token();
+        require(buidlRedemption.liquidity() == tokenOut, "RVB: invalid token");
 
         (
             uint256 feeAmount,
@@ -170,7 +208,18 @@ contract RedemptionVaultWIthBUIDL is RedemptionVault {
         if (contractBalanceTokenOut >= amountTokenOut) return;
 
         uint256 buidlToRedeem = amountTokenOut - contractBalanceTokenOut;
-
+        if (buidlToRedeem < minBuidlToRedeem) {
+            buidlToRedeem = minBuidlToRedeem;
+        }
+        IERC20 buidl = IERC20(buidlRedemption.asset());
+        uint256 buidlBalance = buidl.balanceOf(address(this));
+        require(buidlBalance >= buidlToRedeem, "RVB: buidlToRedeem > balance");
+        if (
+            buidlBalance - buidlToRedeem <= minBuidlToRedeem ||
+            buidlBalance - buidlToRedeem <= minBuidlBalance
+        ) {
+            buidlToRedeem = buidlBalance;
+        }
         buidl.safeIncreaseAllowance(address(buidlRedemption), buidlToRedeem);
         buidlRedemption.redeem(buidlToRedeem);
     }
