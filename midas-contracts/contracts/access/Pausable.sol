@@ -14,6 +14,11 @@ abstract contract Pausable is WithMidasAccessControl, PausableUpgradeable {
     mapping(bytes4 => bool) public fnPaused;
 
     /**
+     * @dev leaving a storage gap for futures updates
+     */
+    uint256[50] private __gap;
+
+    /**
      * @param caller caller address (msg.sender)
      * @param fn function id
      */

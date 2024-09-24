@@ -11,6 +11,11 @@ import "./WithMidasAccessControl.sol";
  */
 abstract contract Blacklistable is WithMidasAccessControl {
     /**
+     * @dev leaving a storage gap for futures updates
+     */
+    uint256[50] private __gap;
+
+    /**
      * @dev checks that a given `account` doesnt
      * have BLACKLISTED_ROLE
      */

@@ -135,13 +135,13 @@ contract MBasisRedemptionVaultWithSwapper is
             address(this)
         );
 
+        _requireAndUpdateLimit(amountMTokenInCopy);
+        _requireAndUpdateAllowance(tokenOutCopy, amountTokenOut);
+
         if (
             contractTokenOutBalance >=
             amountTokenOutWithoutFee.convertFromBase18(tokenDecimals)
         ) {
-            _requireAndUpdateLimit(amountMTokenInCopy);
-            _requireAndUpdateAllowance(tokenOutCopy, amountTokenOut);
-
             mToken.burn(user, amountMTokenWithoutFee);
         } else {
             uint256 mTbillAmount = _swapMBasisToMToken(amountMTokenWithoutFee);

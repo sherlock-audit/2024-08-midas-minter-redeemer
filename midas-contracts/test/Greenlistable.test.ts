@@ -41,6 +41,18 @@ describe('Greenlistable', function () {
     ).revertedWith('Initializable: contract is not initializing');
   });
 
+  it('onlyInitializing unchained', async () => {
+    const { owner, accessControl } = await loadFixture(defaultDeploy);
+
+    const greenListable = await new GreenlistableTester__factory(
+      owner,
+    ).deploy();
+
+    await expect(
+      greenListable.initializeUnchainedWithoutInitializer(),
+    ).revertedWith('Initializable: contract is not initializing');
+  });
+
   describe('modifier onlyGreenlisted', () => {
     it('should fail: call from greenlisted user', async () => {
       const { greenListableTester, regularAccounts, owner } = await loadFixture(

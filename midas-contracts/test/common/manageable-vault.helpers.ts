@@ -1,6 +1,6 @@
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { expect } from 'chai';
-import { BigNumberish } from 'ethers';
+import { BigNumber, BigNumberish } from 'ethers';
 import { parseUnits } from 'ethers/lib/utils';
 
 import { Account, OptionalCommonParams, getAccount } from './common.helpers';
@@ -224,6 +224,29 @@ export const setFeeReceiverTest = async (
   expect(feeReceiver).eq(newReceiver);
 };
 
+export const setTokensReceiverTest = async (
+  { vault, owner }: CommonParamsChangePaymentToken,
+  newReceiver: string,
+  opt?: OptionalCommonParams,
+) => {
+  if (opt?.revertMessage) {
+    await expect(
+      vault.connect(opt?.from ?? owner).setTokensReceiver(newReceiver),
+    ).revertedWith(opt?.revertMessage);
+    return;
+  }
+
+  await expect(vault.connect(opt?.from ?? owner).setTokensReceiver(newReceiver))
+    .to.emit(
+      vault,
+      vault.interface.events['SetTokensReceiver(address,address)'].name,
+    )
+    .withArgs((opt?.from ?? owner).address, newReceiver).to.not.reverted;
+
+  const feeReceiver = await vault.tokensReceiver();
+  expect(feeReceiver).eq(newReceiver);
+};
+
 export const addAccountWaivedFeeRestrictionTest = async (
   { vault, owner }: CommonParamsChangePaymentToken,
   account: string,
@@ -398,4 +421,30 @@ export const withdrawTest = async (
 
   expect(balanceAfterContract).eq(balanceBeforeContract.sub(amount));
   expect(balanceAfterTo).eq(balanceBeforeTo.add(amount));
+};
+
+export const setMinBuidlToRedeem = async (
+  {
+    vault,
+    owner,
+  }: { vault: RedemptionVaultWIthBUIDL; owner: SignerWithAddress },
+  value: BigNumber,
+  opt?: OptionalCommonParams,
+) => {
+  if (opt?.revertMessage) {
+    await expect(
+      vault.connect(opt?.from ?? owner).setMinBuidlToRedeem(value),
+    ).revertedWith(opt?.revertMessage);
+    return;
+  }
+
+  await expect(
+    vault.connect(opt?.from ?? owner).setMinBuidlToRedeem(value),
+  ).to.emit(
+    vault,
+    vault.interface.events['SetMinBuidlToRedeem(uint256,address)'].name,
+  ).to.not.reverted;
+
+  const newMin = await vault.minBuidlToRedeem();
+  expect(newMin).eq(value);
 };
